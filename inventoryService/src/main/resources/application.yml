@@ -1,0 +1,25 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3317/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+    username: inventory_user
+    password: inventory_pass
+  jpa:
+    hibernate:
+      ddl-auto: create #validate는 운영 옵션...이고 스키마는 매번 켤 때마다 초기화 하기로
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis123
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin123

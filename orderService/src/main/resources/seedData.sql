@@ -1,0 +1,2 @@
+-- 테스트용 초기 데이터
+-- INSERT INTO orders (customer_id, status, total_price) VALUES (1, 'PENDING', 19900);

@@ -1,0 +1,164 @@
+services:
+
+  # ──────────────────────────────────────────
+  # SERVER A — 주문 & 결제 서비스
+  # ──────────────────────────────────────────
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      # Database
+      SPRING_DATASOURCE_URL: jdbc:mysql://order-db:3306/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: order_user
+      SPRING_DATASOURCE_PASSWORD: order_pass
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: redis123
+      # RabbitMQ
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: admin
+      SPRING_RABBITMQ_PASSWORD: admin123
+    depends_on:
+      order-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - msa-network
+    restart: on-failure
+
+  # ──────────────────────────────────────────
+  # SERVER B — 재고 & 출고 서비스
+  # ──────────────────────────────────────────
+  inventory-service:
+    build:
+      context: ./inventory-service
+      dockerfile: Dockerfile
+    container_name: inventory-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      # Database
+      SPRING_DATASOURCE_URL: jdbc:mysql://inventory-db:3306/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: inventory_user
+      SPRING_DATASOURCE_PASSWORD: inventory_pass
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # RabbitMQ
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: admin
+      SPRING_RABBITMQ_PASSWORD: admin123
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - msa-network
+    restart: on-failure
+
+  # ──────────────────────────────────────────
+  # DATABASE — Order DB (MySQL)
+  # 볼륨 미사용 → down -v 시 데이터 완전 초기화
+  # ──────────────────────────────────────────
+  order-db:
+    image: mysql:8.0
+    container_name: order-db
+    ports:
+      - "3316:3306" # local:container
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: orderdb
+      MYSQL_USER: order_user
+      MYSQL_PASSWORD: order_pass
+    volumes:
+      - ./init-sql/order:/docker-entrypoint-initdb.d   # init-sql/order 이하의 sql파일을 순차대로 수행(init)
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - msa-network
+
+  # ──────────────────────────────────────────
+  # DATABASE — Inventory DB (MySQL)
+  # ──────────────────────────────────────────
+  inventory-db:
+    image: mysql:8.0
+    container_name: inventory-db
+    ports:
+      - "3317:3306"    # local 3317도달 요청을 컨테이너 3306으로 전달
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: inventorydb
+      MYSQL_USER: inventory_user
+      MYSQL_PASSWORD: inventory_pass
+    volumes:
+      - ./init-sql/inventory:/docker-entrypoint-initdb.d # 상동(inventory에 맞춰)
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - msa-network
+
+  # ──────────────────────────────────────────
+  # REDIS — 공유 캐시 & 분산 락
+  # 테스트용이므로 appendonly 비활성 (재시작 시 초기화)
+  # ──────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass redis123
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - msa-network
+
+  # ──────────────────────────────────────────
+  # RABBITMQ — 메시지 브로커
+  # ──────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"      # AMQP (애플리케이션 연결)
+      - "15672:15672"    # Management UI — http://localhost:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - msa-network
+
+# ──────────────────────────────────────────
+# NETWORKS
+# ──────────────────────────────────────────
+networks:
+  msa-network:
+    driver: bridge

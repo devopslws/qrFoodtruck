@@ -1,0 +1,23 @@
+# IntelliJ + Gradle + Spring 기준
+cat > .gitignore << 'EOF'
+# Gradle
+.gradle/
+build/
+*/build/
+**/generated/
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# 환경설정 (민감정보)
+application-local.yml
+application-prod.yml
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+EOF
