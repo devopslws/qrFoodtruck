@@ -62,13 +62,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: order-service-jar
-          path: order-service/build/libs/
+          path: orderService/build/libs/
 
       - name: Download inventory-service artifact
         uses: actions/download-artifact@v4
         with:
           name: inventory-service-jar
-          path: inventory-service/build/libs/
+          path: inventoryService/build/libs/
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
