@@ -88,7 +88,7 @@ jobs:
         run: |
           IMAGE=${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/order-service
           TAG=${{ steps.meta.outputs.tag }}
-          docker build -t $IMAGE:$TAG -t $IMAGE:latest ./order-service
+          docker build -t $IMAGE:$TAG -t $IMAGE:latest ./orderService
           docker push $IMAGE:$TAG
           docker push $IMAGE:latest
 
@@ -96,7 +96,7 @@ jobs:
         run: |
           IMAGE=${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/inventory-service
           TAG=${{ steps.meta.outputs.tag }}
-          docker build -t $IMAGE:$TAG -t $IMAGE:latest ./inventory-service
+          docker build -t $IMAGE:$TAG -t $IMAGE:latest ./inventoryService
           docker push $IMAGE:$TAG
           docker push $IMAGE:latest
 
