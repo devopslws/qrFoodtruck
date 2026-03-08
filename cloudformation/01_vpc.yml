@@ -167,6 +167,14 @@ Resources:
           ToPort: 3306
           SourceSecurityGroupId: !Ref SgEcs
         - IpProtocol: tcp
+          FromPort: 3316
+          ToPort: 3316
+          SourceSecurityGroupId: !Ref SgEcs
+        - IpProtocol: tcp
+          FromPort: 3317
+          ToPort: 3317
+          SourceSecurityGroupId: !Ref SgEcs
+        - IpProtocol: tcp
           FromPort: 6379
           ToPort: 6379
           SourceSecurityGroupId: !Ref SgEcs
