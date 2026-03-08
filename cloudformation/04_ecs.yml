@@ -97,6 +97,20 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref OrderTargetGroup
 
+  # /api/inventory/* 경로는 inventory-service로 라우팅
+  InventoryListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref AlbListener
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /api/inventory/*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref InventoryTargetGroup
+
 Outputs:
   AlbDnsName:
     Value: !GetAtt Alb.DNSName
