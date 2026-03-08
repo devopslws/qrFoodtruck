@@ -135,8 +135,8 @@ jobs:
       - name: Register order-service Task Definition
         id: order-task
         run: |
-          IMAGE=${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/order-service:${{ needs.push-ecr.outputs.image-tag }}
-          TASK_DEF=$(cat <<JSON
+          IMAGE="${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/order-service:${{ needs.push-ecr.outputs.image-tag }}"
+          cat > /tmp/order-task.json << ENDJSON
           {
             "family": "foodtruck-order-task",
             "cpu": "512",
@@ -144,37 +144,38 @@ jobs:
             "networkMode": "awsvpc",
             "requiresCompatibilities": ["FARGATE"],
             "executionRoleArn": "${{ steps.infra.outputs.execution_role }}",
-            "containerDefinitions": [{
-              "name": "order-service",
-              "image": "${IMAGE}",
-              "portMappings": [{"containerPort": 8080}],
-              "environment": [
-                {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
-                {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3316/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
-                {"name": "SPRING_DATASOURCE_USERNAME", "value": "order_user"},
-                {"name": "SPRING_DATASOURCE_PASSWORD", "value": "order_pass"},
-                {"name": "SPRING_DATA_REDIS_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
-                {"name": "SPRING_DATA_REDIS_PORT", "value": "6379"},
-                {"name": "SPRING_DATA_REDIS_PASSWORD", "value": "redis123"},
-                {"name": "SPRING_RABBITMQ_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
-                {"name": "SPRING_RABBITMQ_PORT", "value": "5672"},
-                {"name": "SPRING_RABBITMQ_USERNAME", "value": "admin"},
-                {"name": "SPRING_RABBITMQ_PASSWORD", "value": "admin123"}
-              ],
-              "logConfiguration": {
-                "logDriver": "awslogs",
-                "options": {
-                  "awslogs-group": "${{ steps.infra.outputs.order_log }}",
-                  "awslogs-region": "${{ env.AWS_REGION }}",
-                  "awslogs-stream-prefix": "order"
+            "containerDefinitions": [
+              {
+                "name": "order-service",
+                "image": "${IMAGE}",
+                "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
+                "environment": [
+                  {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
+                  {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3316/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
+                  {"name": "SPRING_DATASOURCE_USERNAME", "value": "order_user"},
+                  {"name": "SPRING_DATASOURCE_PASSWORD", "value": "order_pass"},
+                  {"name": "SPRING_DATA_REDIS_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
+                  {"name": "SPRING_DATA_REDIS_PORT", "value": "6379"},
+                  {"name": "SPRING_DATA_REDIS_PASSWORD", "value": "redis123"},
+                  {"name": "SPRING_RABBITMQ_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
+                  {"name": "SPRING_RABBITMQ_PORT", "value": "5672"},
+                  {"name": "SPRING_RABBITMQ_USERNAME", "value": "admin"},
+                  {"name": "SPRING_RABBITMQ_PASSWORD", "value": "admin123"}
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "${{ steps.infra.outputs.order_log }}",
+                    "awslogs-region": "${{ env.AWS_REGION }}",
+                    "awslogs-stream-prefix": "order"
+                  }
                 }
               }
-            }]
+            ]
           }
-          JSON
-          )
-          TASK_ARN=$(echo $TASK_DEF | aws ecs register-task-definition \
-            --cli-input-json file:///dev/stdin \
+          ENDJSON
+          TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/order-task.json \
             --query 'taskDefinition.taskDefinitionArn' \
             --output text --region ${{ env.AWS_REGION }})
           echo "arn=${TASK_ARN}" >> $GITHUB_OUTPUT
@@ -182,8 +183,8 @@ jobs:
       - name: Register inventory-service Task Definition
         id: inventory-task
         run: |
-          IMAGE=${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/inventory-service:${{ needs.push-ecr.outputs.image-tag }}
-          TASK_DEF=$(cat <<JSON
+          IMAGE="${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/inventory-service:${{ needs.push-ecr.outputs.image-tag }}"
+          cat > /tmp/inventory-task.json << ENDJSON
           {
             "family": "foodtruck-inventory-task",
             "cpu": "512",
@@ -191,37 +192,38 @@ jobs:
             "networkMode": "awsvpc",
             "requiresCompatibilities": ["FARGATE"],
             "executionRoleArn": "${{ steps.infra.outputs.execution_role }}",
-            "containerDefinitions": [{
-              "name": "inventory-service",
-              "image": "${IMAGE}",
-              "portMappings": [{"containerPort": 8081}],
-              "environment": [
-                {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
-                {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3317/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
-                {"name": "SPRING_DATASOURCE_USERNAME", "value": "inventory_user"},
-                {"name": "SPRING_DATASOURCE_PASSWORD", "value": "inventory_pass"},
-                {"name": "SPRING_DATA_REDIS_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
-                {"name": "SPRING_DATA_REDIS_PORT", "value": "6379"},
-                {"name": "SPRING_DATA_REDIS_PASSWORD", "value": "redis123"},
-                {"name": "SPRING_RABBITMQ_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
-                {"name": "SPRING_RABBITMQ_PORT", "value": "5672"},
-                {"name": "SPRING_RABBITMQ_USERNAME", "value": "admin"},
-                {"name": "SPRING_RABBITMQ_PASSWORD", "value": "admin123"}
-              ],
-              "logConfiguration": {
-                "logDriver": "awslogs",
-                "options": {
-                  "awslogs-group": "${{ steps.infra.outputs.inventory_log }}",
-                  "awslogs-region": "${{ env.AWS_REGION }}",
-                  "awslogs-stream-prefix": "inventory"
+            "containerDefinitions": [
+              {
+                "name": "inventory-service",
+                "image": "${IMAGE}",
+                "portMappings": [{"containerPort": 8081, "protocol": "tcp"}],
+                "environment": [
+                  {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
+                  {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3317/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
+                  {"name": "SPRING_DATASOURCE_USERNAME", "value": "inventory_user"},
+                  {"name": "SPRING_DATASOURCE_PASSWORD", "value": "inventory_pass"},
+                  {"name": "SPRING_DATA_REDIS_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
+                  {"name": "SPRING_DATA_REDIS_PORT", "value": "6379"},
+                  {"name": "SPRING_DATA_REDIS_PASSWORD", "value": "redis123"},
+                  {"name": "SPRING_RABBITMQ_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
+                  {"name": "SPRING_RABBITMQ_PORT", "value": "5672"},
+                  {"name": "SPRING_RABBITMQ_USERNAME", "value": "admin"},
+                  {"name": "SPRING_RABBITMQ_PASSWORD", "value": "admin123"}
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "${{ steps.infra.outputs.inventory_log }}",
+                    "awslogs-region": "${{ env.AWS_REGION }}",
+                    "awslogs-stream-prefix": "inventory"
+                  }
                 }
               }
-            }]
+            ]
           }
-          JSON
-          )
-          TASK_ARN=$(echo $TASK_DEF | aws ecs register-task-definition \
-            --cli-input-json file:///dev/stdin \
+          ENDJSON
+          TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/inventory-task.json \
             --query 'taskDefinition.taskDefinitionArn' \
             --output text --region ${{ env.AWS_REGION }})
           echo "arn=${TASK_ARN}" >> $GITHUB_OUTPUT
