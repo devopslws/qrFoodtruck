@@ -1,5 +1,7 @@
 -- inventory-service 초기 테이블 생성
 -- Entity 기준으로 작성 (ddl-auto: update 사용 중이므로 참고용 스키마)
+-- entity의 autoUpdate를 기준으로 쓴다(실습용이니까.. 관리 포인트가 2군데라 더 힘듦)
+-- 구조 자체는 우선 남겨둠
 
 CREATE TABLE IF NOT EXISTS products (
     id              BIGINT        NOT NULL AUTO_INCREMENT,

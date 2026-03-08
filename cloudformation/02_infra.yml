@@ -68,10 +68,8 @@ Resources:
           curl -SL "https://github.com/docker/compose/releases/download/${!COMPOSE_VERSION}/docker-compose-linux-x86_64" \
             -o /usr/local/lib/docker/cli-plugins/docker-compose
           chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-          mkdir -p /opt/foodtruck/init-sql/order /opt/foodtruck/init-sql/inventory
+          mkdir -p /opt/foodtruck
           cd /opt/foodtruck
-          curl -fsSL ${GitHubRawBaseUrl}/init-sql/order/01_schema.sql -o init-sql/order/01_schema.sql
-          curl -fsSL ${GitHubRawBaseUrl}/init-sql/inventory/01_schema.sql -o init-sql/inventory/01_schema.sql
           cat > docker-compose.yml << 'COMPOSE'
           version: '3.8'
           services:
@@ -86,8 +84,6 @@ Resources:
                 MYSQL_USER: order_user
                 MYSQL_PASSWORD: order_pass
                 MYSQL_INNODB_BUFFER_POOL_SIZE: 128M
-              volumes:
-                - ./init-sql/order:/docker-entrypoint-initdb.d
               command: --innodb-buffer-pool-size=128M --performance-schema=OFF --max-connections=50
               mem_limit: 256m
               restart: always
@@ -102,8 +98,6 @@ Resources:
                 MYSQL_USER: inventory_user
                 MYSQL_PASSWORD: inventory_pass
                 MYSQL_INNODB_BUFFER_POOL_SIZE: 128M
-              volumes:
-                - ./init-sql/inventory:/docker-entrypoint-initdb.d
               command: --innodb-buffer-pool-size=128M --performance-schema=OFF --max-connections=50
               mem_limit: 256m
               restart: always

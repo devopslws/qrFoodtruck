@@ -85,8 +85,6 @@ services:
       MYSQL_DATABASE: orderdb
       MYSQL_USER: order_user
       MYSQL_PASSWORD: order_pass
-    volumes:
-      - ./init-sql/order:/docker-entrypoint-initdb.d   # init-sql/order 이하의 sql파일을 순차대로 수행(init)
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
       interval: 10s
@@ -108,8 +106,6 @@ services:
       MYSQL_DATABASE: inventorydb
       MYSQL_USER: inventory_user
       MYSQL_PASSWORD: inventory_pass
-    volumes:
-      - ./init-sql/inventory:/docker-entrypoint-initdb.d # 상동(inventory에 맞춰)
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
       interval: 10s
