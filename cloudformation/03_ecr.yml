@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: FoodTruck - ECR Repositories
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: foodtruck
+
+Resources:
+
+  OrderServiceRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${ProjectName}/order-service
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-order-service-repo
+
+  InventoryServiceRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${ProjectName}/inventory-service
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-inventory-service-repo
+
+Outputs:
+  OrderServiceRepoUri:
+    Value: !GetAtt OrderServiceRepo.RepositoryUri
+    Export:
+      Name: !Sub ${ProjectName}-OrderServiceRepoUri
+
+  InventoryServiceRepoUri:
+    Value: !GetAtt InventoryServiceRepo.RepositoryUri
+    Export:
+      Name: !Sub ${ProjectName}-InventoryServiceRepoUri

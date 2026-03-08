@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🚚 관리자 콘솔</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+          --bg: #f4f1ec;
+          --surface: #fdfaf6;
+          --surface2: #eee9e1;
+          --border: #d6cfc4;
+          --border2: #c4bdb2;
+          --accent: #c8410a;
+          --accent2: #e8a020;
+          --text: #1a1714;
+          --muted: #8a8178;
+          --green: #2e7d4f;
+          --green-bg: #eaf4ee;
+          --blue: #1a5fa8;
+          --blue-bg: #e8f0fb;
+          --red: #b91c1c;
+          --red-bg: #fef2f2;
+          --yellow-bg: #fffbeb;
+          --sidebar-w: 160px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: 'Noto Sans KR', sans-serif;
+          font-size: 13px;
+          min-height: 100vh;
+          display: flex;
+        }
+
+        /* ── Sidebar ── */
+        aside {
+          width: var(--sidebar-w);
+          background: #1a1714;
+          color: #f0ede8;
+          display: flex;
+          flex-direction: column;
+          flex-shrink: 0;
+          min-height: 100vh;
+        }
+        .sidebar-logo {
+          padding: 20px 16px 16px;
+          font-family: 'Space Mono', monospace;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--accent2);
+          border-bottom: 1px solid #2e2a26;
+          letter-spacing: -0.5px;
+        }
+        .sidebar-logo span { color: #666; font-size: 0.65rem; display: block; margin-top: 2px; }
+        .nav-group { padding: 16px 0 8px; }
+        .nav-group-label {
+          font-size: 0.6rem;
+          font-weight: 700;
+          letter-spacing: 2px;
+          color: #555;
+          padding: 0 16px 8px;
+          text-transform: uppercase;
+        }
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 9px 16px;
+          cursor: pointer;
+          color: #aaa;
+          font-size: 0.82rem;
+          transition: all 0.15s;
+          border-left: 2px solid transparent;
+        }
+        .nav-item:hover { color: #f0ede8; background: #252118; }
+        .nav-item.active { color: var(--accent2); border-left-color: var(--accent2); background: #252118; }
+        .nav-sub {
+          padding: 6px 16px 6px 32px;
+          cursor: pointer;
+          color: #666;
+          font-size: 0.75rem;
+          transition: all 0.15s;
+        }
+        .nav-sub:hover { color: #aaa; }
+        .nav-sub.active { color: var(--accent2); }
+
+        /* ── Main ── */
+        .main-wrap {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+        header {
+          background: var(--surface);
+          border-bottom: 1px solid var(--border);
+          padding: 12px 24px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .page-title {
+          font-size: 0.9rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+        .sse-dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          background: var(--muted);
+          animation: none;
+        }
+        .sse-dot.live {
+          background: var(--green);
+          animation: pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+        }
+        .sse-label { font-size: 0.7rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+        /* pages */
+        .page { display: none; flex: 1; overflow: auto; }
+        .page.active { display: flex; }
+
+        /* ── Page 1: 주문관리 ── */
+        #page-order {
+          flex-direction: row;
+          gap: 0;
+        }
+
+        /* 고객 세션 패널 */
+        .panel-sessions {
+          width: 148px;
+          flex-shrink: 0;
+          background: var(--surface);
+          border-right: 1px solid var(--border);
+          display: flex;
+          flex-direction: column;
+          padding: 14px 10px;
+          gap: 10px;
+          overflow-y: auto;
+        }
+        .panel-sessions-label {
+          font-size: 0.6rem;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          color: var(--muted);
+          text-transform: uppercase;
+          padding-bottom: 6px;
+          border-bottom: 1px solid var(--border);
+        }
+        .session-card {
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 9px 10px;
+          background: var(--surface2);
+          cursor: pointer;
+          transition: all 0.15s;
+          position: relative;
+        }
+        .session-card:hover { border-color: var(--border2); background: #ede8e0; }
+        .session-card.selected { border-color: var(--accent2); background: var(--yellow-bg); }
+        .session-card-id {
+          font-family: 'Space Mono', monospace;
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+        .session-card-sub {
+          font-size: 0.65rem;
+          color: var(--muted);
+          margin-top: 3px;
+        }
+        .session-status-dot {
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: var(--muted);
+          position: absolute;
+          top: 9px; right: 9px;
+        }
+        .session-status-dot.idle    { background: var(--muted); }
+        .session-status-dot.active  { background: var(--accent2); animation: pulse 1.8s infinite; }
+        .session-status-dot.cooking { background: var(--accent); animation: pulse 1.8s infinite; }
+        .session-status-dot.done    { background: var(--green); }
+
+        /* 중앙 패널 */
+        .panel-center {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          overflow-y: auto;
+        }
+
+        .panel-block {
+          border-bottom: 1px solid var(--border);
+          padding: 16px 20px;
+        }
+        .panel-block-title {
+          font-size: 0.65rem;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: var(--muted);
+          margin-bottom: 12px;
+        }
+
+        /* 주문/결제 (default용) */
+        .order-default-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        .order-type-btn {
+          padding: 9px 0;
+          border-radius: 7px;
+          border: 1.5px solid var(--border);
+          background: var(--surface2);
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--text);
+          cursor: pointer;
+          transition: all 0.15s;
+          font-family: 'Noto Sans KR', sans-serif;
+        }
+        .order-type-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+        .order-type-btn.selected { border-color: var(--accent2); background: var(--yellow-bg); color: var(--accent); }
+
+        .pos-btn {
+          width: 100%;
+          margin-top: 10px;
+          padding: 10px 0;
+          border-radius: 7px;
+          border: none;
+          background: var(--accent);
+          color: #fff;
+          font-size: 0.85rem;
+          font-weight: 700;
+          cursor: pointer;
+          font-family: 'Noto Sans KR', sans-serif;
+          transition: opacity 0.15s;
+        }
+        .pos-btn:hover { opacity: 0.85; }
+
+        /* 환불 */
+        .refund-grid {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 8px;
+          align-items: center;
+        }
+        .refund-input {
+          padding: 7px 10px;
+          border-radius: 6px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          font-size: 0.8rem;
+          color: var(--text);
+          font-family: 'Noto Sans KR', sans-serif;
+          outline: none;
+          transition: border 0.15s;
+        }
+        .refund-input:focus { border-color: var(--accent2); }
+        .refund-label { font-size: 0.75rem; color: var(--muted); }
+        .refund-amount-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 8px;
+        }
+        .refund-amount-input {
+          flex: 1;
+          padding: 7px 10px;
+          border-radius: 6px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          font-size: 0.8rem;
+          color: var(--text);
+          font-family: 'Space Mono', monospace;
+          outline: none;
+        }
+        .refund-amount-input:focus { border-color: var(--accent2); }
+        .refund-max { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+        .refund-btn {
+          width: 100%;
+          margin-top: 10px;
+          padding: 9px 0;
+          border-radius: 7px;
+          border: none;
+          background: var(--red);
+          color: #fff;
+          font-size: 0.82rem;
+          font-weight: 700;
+          cursor: pointer;
+          font-family: 'Noto Sans KR', sans-serif;
+          transition: opacity 0.15s;
+        }
+        .refund-btn:hover { opacity: 0.85; }
+
+        /* 실시간 재고 */
+        .stock-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .stock-table th {
+          font-size: 0.65rem;
+          font-weight: 700;
+          color: var(--muted);
+          text-align: left;
+          padding: 0 0 8px;
+          border-bottom: 1px solid var(--border);
+        }
+        .stock-table td {
+          padding: 8px 0;
+          font-size: 0.82rem;
+          border-bottom: 1px solid var(--border);
+          vertical-align: middle;
+        }
+        .stock-table tr:last-child td { border-bottom: none; }
+        .stock-zero { color: var(--red); font-weight: 700; }
+        .stock-adj-input {
+          width: 56px;
+          padding: 4px 8px;
+          border-radius: 5px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          font-size: 0.78rem;
+          font-family: 'Space Mono', monospace;
+          text-align: center;
+          color: var(--text);
+          outline: none;
+        }
+        .stock-adj-input:focus { border-color: var(--accent2); }
+        .inout-btn {
+          margin-top: 10px;
+          padding: 8px 18px;
+          border-radius: 6px;
+          border: 1.5px solid var(--border2);
+          background: var(--surface);
+          font-size: 0.78rem;
+          font-weight: 700;
+          cursor: pointer;
+          font-family: 'Noto Sans KR', sans-serif;
+          transition: all 0.15s;
+          color: var(--text);
+        }
+        .inout-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+
+        /* 제조현황 */
+        .mfg-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .mfg-table th {
+          font-size: 0.65rem;
+          font-weight: 700;
+          color: var(--muted);
+          text-align: left;
+          padding: 0 0 8px;
+          border-bottom: 1px solid var(--border);
+        }
+        .mfg-table td {
+          padding: 9px 0;
+          font-size: 0.82rem;
+          border-bottom: 1px solid var(--border);
+          vertical-align: middle;
+        }
+        .mfg-table tr:last-child td { border-bottom: none; }
+        .mfg-order-no {
+          font-family: 'Space Mono', monospace;
+          font-weight: 700;
+          font-size: 0.8rem;
+          color: var(--text);
+          width: 56px;
+        }
+        .mfg-desc { color: var(--muted); font-size: 0.78rem; flex: 1; }
+
+        .chip {
+          display: inline-flex;
+          align-items: center;
+          font-size: 0.68rem;
+          font-weight: 700;
+          padding: 3px 9px;
+          border-radius: 20px;
+          white-space: nowrap;
+          font-family: 'Space Mono', monospace;
+        }
+        .chip-accepted  { background: var(--blue-bg);   color: var(--blue);  border: 1px solid #bcd4f4; }
+        .chip-paid      { background: var(--yellow-bg);  color: #b45309;      border: 1px solid #f5d98a; }
+        .chip-cooking   { background: #fff4ee;           color: var(--accent); border: 1px solid #f5c9b0; }
+        .chip-ready     { background: var(--green-bg);   color: var(--green); border: 1px solid #a7d9ba; }
+        .chip-delivered { background: var(--surface2);   color: var(--muted); border: 1px solid var(--border); }
+
+        .deliver-btn {
+          padding: 4px 10px;
+          border-radius: 5px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          font-size: 0.7rem;
+          font-weight: 700;
+          cursor: pointer;
+          color: var(--text);
+          font-family: 'Noto Sans KR', sans-serif;
+          transition: all 0.15s;
+        }
+        .deliver-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+
+        /* 우측 패널 */
+        .panel-right {
+          width: 260px;
+          flex-shrink: 0;
+          border-left: 1px solid var(--border);
+          background: var(--surface);
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+        }
+        .log-header {
+          padding: 14px 16px 10px;
+          border-bottom: 1px solid var(--border);
+        }
+        .log-title {
+          font-size: 0.65rem;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+        .log-subtitle { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+
+        /* 차트 영역 */
+        .chart-wrap {
+          padding: 14px 16px 8px;
+          border-bottom: 1px solid var(--border);
+        }
+        .chart-label { font-size: 0.65rem; color: var(--muted); margin-bottom: 8px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+        .bar-chart { display: flex; flex-direction: column; gap: 6px; }
+        .bar-row { display: flex; align-items: center; gap: 8px; }
+        .bar-name { font-size: 0.7rem; color: var(--muted); width: 40px; flex-shrink: 0; }
+        .bar-track { flex: 1; height: 14px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+        .bar-val { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: var(--text); width: 24px; text-align: right; }
+
+        /* 주문 로그 리스트 */
+        .log-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .log-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 9px 16px;
+          border-bottom: 1px solid var(--border);
+          transition: background 0.1s;
+          cursor: default;
+        }
+        .log-item:hover { background: var(--surface2); }
+        .log-time {
+          font-family: 'Space Mono', monospace;
+          font-size: 0.62rem;
+          color: var(--muted);
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+        .log-body { flex: 1; }
+        .log-orderno {
+          font-family: 'Space Mono', monospace;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+        .log-desc { font-size: 0.72rem; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+        .log-amount {
+          font-family: 'Space Mono', monospace;
+          font-size: 0.72rem;
+          color: var(--text);
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+        .log-refund { color: var(--red); }
+
+        /* ── Page 2: 구조해설 ── */
+        #page-docs {
+          flex-direction: column;
+          padding: 28px 32px;
+          overflow-y: auto;
+          background: var(--bg);
+        }
+        .docs-tabs {
+          display: flex;
+          gap: 4px;
+          margin-bottom: 24px;
+          border-bottom: 2px solid var(--border);
+        }
+        .docs-tab {
+          padding: 8px 18px 10px;
+          font-size: 0.82rem;
+          font-weight: 700;
+          cursor: pointer;
+          color: var(--muted);
+          border-bottom: 2px solid transparent;
+          margin-bottom: -2px;
+          transition: all 0.15s;
+        }
+        .docs-tab:hover { color: var(--text); }
+        .docs-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .doc-page { display: none; }
+        .doc-page.active { display: block; }
+
+        .doc-section { margin-bottom: 28px; }
+        .doc-h1 {
+          font-size: 1.2rem;
+          font-weight: 900;
+          color: var(--text);
+          margin-bottom: 6px;
+        }
+        .doc-h2 {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: var(--muted);
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          margin-bottom: 12px;
+          padding-bottom: 6px;
+          border-bottom: 1px solid var(--border);
+        }
+        .doc-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+
+        /* 아키텍처 다이어그램 */
+        .arch-diagram {
+          background: #1a1714;
+          border-radius: 10px;
+          padding: 20px 24px;
+          font-family: 'Space Mono', monospace;
+          font-size: 0.72rem;
+          color: #c8c0b8;
+          line-height: 1.8;
+          overflow-x: auto;
+        }
+        .arch-diagram .hl  { color: var(--accent2); }
+        .arch-diagram .hl2 { color: #7ec8a0; }
+        .arch-diagram .hl3 { color: #7ab8f5; }
+        .arch-diagram .dim { color: #555; }
+
+        /* 스택 배지 */
+        .stack-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .stack-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 12px;
+          border-radius: 6px;
+          border: 1px solid var(--border);
+          font-size: 0.75rem;
+          font-weight: 700;
+          background: var(--surface);
+          color: var(--text);
+        }
+        .stack-badge .dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+        }
+
+        /* 플로우 스텝 */
+        .flow-steps {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          position: relative;
+        }
+        .flow-step {
+          display: flex;
+          gap: 14px;
+          align-items: flex-start;
+          padding: 10px 0;
+        }
+        .flow-step-num {
+          width: 24px; height: 24px;
+          border-radius: 50%;
+          background: var(--accent);
+          color: #fff;
+          font-family: 'Space Mono', monospace;
+          font-size: 0.7rem;
+          font-weight: 700;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .flow-step-body { padding-top: 3px; }
+        .flow-step-title { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+        .flow-step-desc  { font-size: 0.75rem; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+
+        /* 스키마 테이블 */
+        .schema-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 0.78rem;
+        }
+        .schema-table th {
+          background: var(--surface2);
+          padding: 7px 12px;
+          text-align: left;
+          font-size: 0.65rem;
+          font-weight: 700;
+          color: var(--muted);
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          border: 1px solid var(--border);
+        }
+        .schema-table td {
+          padding: 7px 12px;
+          border: 1px solid var(--border);
+          color: var(--text);
+          vertical-align: top;
+        }
+        .schema-table tr:nth-child(even) td { background: var(--surface2); }
+        .mono { font-family: 'Space Mono', monospace; font-size: 0.7rem; }
+        .pk { color: var(--accent); font-weight: 700; }
+
+        /* progress bar */
+        .progress-section { margin-bottom: 28px; }
+        .progress-item { margin-bottom: 10px; }
+        .progress-label {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.75rem;
+          margin-bottom: 4px;
+        }
+        .progress-label span:first-child { font-weight: 700; color: var(--text); }
+        .progress-label span:last-child  { color: var(--muted); }
+        .progress-track {
+          height: 6px;
+          background: var(--surface2);
+          border-radius: 3px;
+          overflow: hidden;
+        }
+        .progress-fill {
+          height: 100%;
+          background: var(--accent);
+          border-radius: 3px;
+          transition: width 1s ease;
+        }
+        .progress-fill.done { background: var(--green); }
+
+        /* toast */
+        #toast {
+          position: fixed;
+          bottom: 24px; left: 50%;
+          transform: translateX(-50%) translateY(20px);
+          background: #1a1714;
+          border: 1px solid #2e2a26;
+          color: #f0ede8;
+          padding: 9px 18px;
+          border-radius: 9px;
+          font-size: 0.82rem;
+          opacity: 0;
+          transition: all 0.3s;
+          pointer-events: none;
+          z-index: 999;
+          white-space: nowrap;
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<aside>
+    <div class="sidebar-logo">🚚 FOOD TRUCK<span>Admin Console</span></div>
+    <nav class="nav-group">
+        <div class="nav-group-label">메뉴</div>
+        <div class="nav-item active" onclick="switchPage('order', this)">
+            <span>📋</span> 주문관리
+        </div>
+        <div class="nav-item" onclick="switchPage('docs', this)">
+            <span>📖</span> 구조 해설
+        </div>
+        <div class="nav-sub active" id="docs-sub-1" style="display:none">2-1. 데이터 스키마</div>
+        <div class="nav-sub"        id="docs-sub-2" style="display:none">2-2. 배포환경 구성</div>
+    </nav>
+</aside>
+
+<!-- ── Main ── -->
+<div class="main-wrap">
+    <header>
+        <div class="page-title" id="page-title">주문관리</div>
+        <div class="sse-dot live" id="sse-dot"></div>
+        <div class="sse-label" id="sse-label">SSE LIVE</div>
+    </header>
+
+    <!-- ════════════════════════════════
+         PAGE 1: 주문관리
+    ════════════════════════════════ -->
+    <div class="page active" id="page-order">
+
+        <!-- 좌: 고객 세션 -->
+        <div class="panel-sessions">
+            <div class="panel-sessions-label">고객 세션</div>
+
+            <!-- default 1 -->
+            <div class="session-card selected" id="sess-default1" onclick="selectSession('default1', this)">
+                <div class="session-card-id">default 1</div>
+                <div class="session-card-sub">현장 주문용</div>
+                <div class="session-status-dot idle" id="dot-default1"></div>
+            </div>
+
+            <!-- default 2 (처음에는 숨김, default1 점유 시 등장) -->
+            <div class="session-card" id="sess-default2" style="display:none" onclick="selectSession('default2', this)">
+                <div class="session-card-id">default 2</div>
+                <div class="session-card-sub">대기 중</div>
+                <div class="session-status-dot idle" id="dot-default2"></div>
+            </div>
+
+            <!-- QR 고객들 (JS로 동적 추가) -->
+            <div id="session-list"></div>
+        </div>
+
+        <!-- 중: 콘텐츠 -->
+        <div class="panel-center">
+
+            <!-- 주문/결제 (default용) -->
+            <div class="panel-block">
+                <div class="panel-block-title">주문 / 결제 — 현장 직접 주문</div>
+                <div class="order-default-grid">
+                    <button class="order-type-btn" onclick="selectOrderType('cash', this)">💵 현금결제</button>
+                    <button class="order-type-btn" onclick="selectOrderType('card', this)">💳 카드직불</button>
+                </div>
+                <button class="pos-btn" onclick="posOrder()">POS 주문</button>
+            </div>
+
+            <!-- 환불 -->
+            <div class="panel-block">
+                <div class="panel-block-title">환불 처리</div>
+                <div class="refund-grid">
+                    <input class="refund-input" id="refund-orderno" placeholder="주문번호 입력" />
+                    <button class="order-type-btn" style="padding:7px 12px;font-size:0.75rem" onclick="lookupOrder()">금액 조회</button>
+                </div>
+                <div class="refund-amount-row">
+                    <input class="refund-amount-input" id="refund-amount" placeholder="취소금액" />
+                    <span class="refund-max" id="refund-max">/ — 원</span>
+                </div>
+                <button class="refund-btn" onclick="processRefund()">환불 처리</button>
+            </div>
+
+            <!-- 실시간 재고 -->
+            <div class="panel-block">
+                <div class="panel-block-title">실시간 재고 (Redis)</div>
+                <table class="stock-table">
+                    <thead>
+                    <tr>
+                        <th>상품</th>
+                        <th>재고</th>
+                        <th>조정재고</th>
+                    </tr>
+                    </thead>
+                    <tbody id="stock-tbody">
+                    <tr>
+                        <td>짜장면</td>
+                        <td id="stock-1">5</td>
+                        <td><input class="stock-adj-input" id="adj-1" placeholder="0" /></td>
+                    </tr>
+                    <tr>
+                        <td>짬뽕</td>
+                        <td id="stock-2">5</td>
+                        <td><input class="stock-adj-input" id="adj-2" placeholder="0" /></td>
+                    </tr>
+                    <tr>
+                        <td>탕수육</td>
+                        <td class="stock-zero" id="stock-3">0</td>
+                        <td><input class="stock-adj-input" id="adj-3" placeholder="0" /></td>
+                    </tr>
+                    </tbody>
+                </table>
+                <button class="inout-btn" onclick="adjustStock()">입/출고 적용</button>
+            </div>
+
+            <!-- 제조현황 -->
+            <div class="panel-block" style="border-bottom:none">
+                <div class="panel-block-title">제조 현황</div>
+                <table class="mfg-table">
+                    <thead>
+                    <tr>
+                        <th style="width:56px">주문번호</th>
+                        <th>내역</th>
+                        <th>상태</th>
+                        <th style="width:70px"></th>
+                    </tr>
+                    </thead>
+                    <tbody id="mfg-tbody">
+                    <tr>
+                        <td class="mfg-order-no">A01</td>
+                        <td class="mfg-desc">짜장면 3개</td>
+                        <td><span class="chip chip-paid">결제 완료</span></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="mfg-order-no">B08</td>
+                        <td class="mfg-desc">짬뽕 2개</td>
+                        <td><span class="chip chip-ready">조리 완료</span></td>
+                        <td><button class="deliver-btn" onclick="deliver('B08', this)">전달완료</button></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+        <!-- 우: 주문이력 로그 -->
+        <div class="panel-right">
+            <div class="log-header">
+                <div class="log-title">주문 이력 LOG</div>
+                <div class="log-subtitle">오늘 누적 · 검색 없음</div>
+            </div>
+
+            <!-- 간단 바 차트 -->
+            <div class="chart-wrap">
+                <div class="chart-label">메뉴별 판매량</div>
+                <div class="bar-chart" id="bar-chart">
+                    <div class="bar-row">
+                        <span class="bar-name">짜장면</span>
+                        <div class="bar-track"><div class="bar-fill" id="bar-1" style="width:70%;background:#c8410a"></div></div>
+                        <span class="bar-val" id="bval-1">7</span>
+                    </div>
+                    <div class="bar-row">
+                        <span class="bar-name">짬뽕</span>
+                        <div class="bar-track"><div class="bar-fill" id="bar-2" style="width:50%;background:#e8a020"></div></div>
+                        <span class="bar-val" id="bval-2">5</span>
+                    </div>
+                    <div class="bar-row">
+                        <span class="bar-name">탕수육</span>
+                        <div class="bar-track"><div class="bar-fill" id="bar-3" style="width:20%;background:#2e7d4f"></div></div>
+                        <span class="bar-val" id="bval-3">2</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 로그 리스트 -->
+            <div class="log-list" id="log-list">
+                <div class="log-item">
+                    <span class="log-time">14:23</span>
+                    <div class="log-body">
+                        <div class="log-orderno">B08</div>
+                        <div class="log-desc">짬뽕 2개</div>
+                    </div>
+                    <span class="log-amount">₩20,000</span>
+                </div>
+                <div class="log-item">
+                    <span class="log-time">14:11</span>
+                    <div class="log-body">
+                        <div class="log-orderno">A01</div>
+                        <div class="log-desc">짜장면 3개</div>
+                    </div>
+                    <span class="log-amount">₩24,000</span>
+                </div>
+                <div class="log-item">
+                    <span class="log-time">13:55</span>
+                    <div class="log-body">
+                        <div class="log-orderno">K22</div>
+                        <div class="log-desc">탕수육 1개</div>
+                    </div>
+                    <span class="log-amount log-refund">↩ 환불</span>
+                </div>
+                <div class="log-item">
+                    <span class="log-time">13:40</span>
+                    <div class="log-body">
+                        <div class="log-orderno">K22</div>
+                        <div class="log-desc">탕수육 1개</div>
+                    </div>
+                    <span class="log-amount">₩22,000</span>
+                </div>
+                <div class="log-item">
+                    <span class="log-time">13:18</span>
+                    <div class="log-body">
+                        <div class="log-orderno">J15</div>
+                        <div class="log-desc">짜장면 2개 · 짬뽕 1개</div>
+                    </div>
+                    <span class="log-amount">₩26,000</span>
+                </div>
+                <div class="log-item">
+                    <span class="log-time">12:50</span>
+                    <div class="log-body">
+                        <div class="log-orderno">H09</div>
+                        <div class="log-desc">짜장면 2개</div>
+                    </div>
+                    <span class="log-amount">₩16,000</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ════════════════════════════════
+         PAGE 2: 구조 해설
+    ════════════════════════════════ -->
+    <div class="page" id="page-docs">
+        <div class="docs-tabs">
+            <div class="docs-tab active" onclick="switchDoc('arch', this)">2-1. 시스템 아키텍처</div>
+            <div class="docs-tab" onclick="switchDoc('schema', this)">2-2. 데이터 스키마</div>
+            <div class="docs-tab" onclick="switchDoc('deploy', this)">2-3. 배포환경 구성</div>
+            <div class="docs-tab" onclick="switchDoc('progress', this)">2-4. 진행 현황</div>
+        </div>
+
+        <!-- 2-1. 아키텍처 -->
+        <div class="doc-page active" id="doc-arch">
+            <div class="doc-section">
+                <div class="doc-h1">🚚 QR FoodTruck</div>
+                <div class="doc-desc">팝업 푸드트럭 전용 QR 주문 시스템. 회원가입 없이 QR 스캔만으로 주문·결제·조리 상태를 실시간 확인.</div>
+            </div>
+            <div class="doc-section">
+                <div class="doc-h2">아키텍처 다이어그램</div>
+                <div class="arch-diagram">
+                    <span class="hl">[고객 브라우저]</span>  QR 접속 → /order  |  SSE 구독 (조리완료 알림)
+                    │
+                    ▼
+                    <span class="hl2">┌─────────────────────────────┐</span>   <span class="hl3">┌──────────────────────────────┐</span>
+                    <span class="hl2">│  Server A  — 주문 · 결제     │</span>   <span class="hl3">│  Server B  — 재고 · 제조      │</span>
+                    <span class="hl2">│  :8080                       │</span>   <span class="hl3">│  :8081                        │</span>
+                    <span class="hl2">│  ├ 주문 접수 / 상태 관리      │</span>   <span class="hl3">│  ├ 상품 재고 관리 (Write)      │</span>
+                    <span class="hl2">│  ├ Toss PG 연동               │</span>   <span class="hl3">│  ├ 조리 상태 관리              │</span>
+                    <span class="hl2">│  ├ Redis 재고 Read-Only        │</span>   <span class="hl3">│  ├ Redis 재고 Write 주체       │</span>
+                    <span class="hl2">│  └ SSE 이벤트 Push            │</span>   <span class="hl3">│  └ RabbitMQ 이벤트 발행        │</span>
+                    <span class="hl2">└──────────┬──────────────────┘</span>   <span class="hl3">└──────────────┬───────────────┘</span>
+                    │                                         │
+                    └──────────── <span class="hl">RabbitMQ</span> ─────────────────┘
+                    비동기 메시지
+                    │
+                    <span class="hl">┌──────────────────────────────┐</span>
+                    <span class="hl">│  Redis  — 공유 캐시           │</span>
+                    <span class="hl">│  재고 실시간 관리 · 세션 UUID  │</span>
+                    <span class="hl">└──────────────────────────────┘</span>
+                    <span class="dim">MySQL A (주문·결제)   MySQL B (상품·제조)   모두 Docker 컨테이너</span>
+                </div>
+            </div>
+            <div class="doc-section">
+                <div class="doc-h2">기술 스택</div>
+                <div class="stack-grid">
+                    <div class="stack-badge"><div class="dot" style="background:#c8410a"></div>Java 17</div>
+                    <div class="stack-badge"><div class="dot" style="background:#6db33f"></div>Spring Boot 3.3</div>
+                    <div class="stack-badge"><div class="dot" style="background:#e8a020"></div>JPA + QueryDSL</div>
+                    <div class="stack-badge"><div class="dot" style="background:#dc382d"></div>Redis 7.2</div>
+                    <div class="stack-badge"><div class="dot" style="background:#ff6600"></div>RabbitMQ 3.13</div>
+                    <div class="stack-badge"><div class="dot" style="background:#1a5fa8"></div>SSE</div>
+                    <div class="stack-badge"><div class="dot" style="background:#0064ff"></div>Toss Payments</div>
+                    <div class="stack-badge"><div class="dot" style="background:#232f3e"></div>AWS EC2</div>
+                    <div class="stack-badge"><div class="dot" style="background:#0db7ed"></div>Docker Compose</div>
+                </div>
+            </div>
+            <div class="doc-section">
+                <div class="doc-h2">주문 플로우</div>
+                <div class="flow-steps">
+                    <div class="flow-step"><div class="flow-step-num">1</div><div class="flow-step-body"><div class="flow-step-title">QR 접속 → 익명 세션 발급</div><div class="flow-step-desc">Redis에 UUID 세션 저장. 장바구니에 첫 상품을 담는 순간 SSE 연결 시작.</div></div></div>
+                    <div class="flow-step"><div class="flow-step-num">2</div><div class="flow-step-body"><div class="flow-step-title">메뉴 조회</div><div class="flow-step-desc">Server A가 Redis에서 재고 직접 조회 (Read-Only). 재고 0이면 품절 표시.</div></div></div>
+                    <div class="flow-step"><div class="flow-step-num">3</div><div class="flow-step-body"><div class="flow-step-title">주문 요청 → 재고 확인</div><div class="flow-step-desc">재고 없으면 주문 실패 alert 반환.</div></div></div>
+                    <div class="flow-step"><div class="flow-step-num">4</div><div class="flow-step-body"><div class="flow-step-title">결제창 → Toss PG</div><div class="flow-step-desc">내부 PK 대신 orderNo(UUID)를 PG사에 제출. 카드 일반결제 기준.</div></div></div>
+                    <div class="flow-step"><div class="flow-step-num">5</div><div class="flow-step-body"><div class="flow-step-title">결제 성공 → Redis 최종 재고 확인 → PG 최종 승인</div><div class="flow-step-desc">TX 전문 저장 후 Server B에 RabbitMQ로 제조 지시.</div></div></div>
+                    <div class="flow-step"><div class="flow-step-num">6</div><div class="flow-step-body"><div class="flow-step-title">Server B 제조 (7초 자동 완성)</div><div class="flow-step-desc">조리 완료 시 SSE로 고객에게 Push. 관리자 화면에 주문번호 표기.</div></div></div>
+                    <div class="flow-step"><div class="flow-step-num">7</div><div class="flow-step-body"><div class="flow-step-title">전달 완료 → 세션 종료</div><div class="flow-step-desc">관리자가 전달완료 버튼 클릭 → 10초 후 고객 세션 만료 · 화면 초기화.</div></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2-2. 스키마 -->
+        <div class="doc-page" id="doc-schema">
+            <div class="doc-section">
+                <div class="doc-h2">Server A — orderdb</div>
+                <table class="schema-table">
+                    <thead><tr><th>테이블</th><th>주요 컬럼</th><th>비고</th></tr></thead>
+                    <tbody>
+                    <tr><td class="mono">orders</td><td>id · customer_id · total_price · paid_price · status</td><td>status: ACCEPTED/PAID/PARTIAL_REFUND/FULL_REFUND</td></tr>
+                    <tr><td class="mono">order_items</td><td>order_id · product_id · product_name · unit_price · quantity · status</td><td>가격·상품명 스냅샷 보존</td></tr>
+                    <tr><td class="mono">payments</td><td>id · <span class="pk">order_no(UUID)</span> · order_id · total_price · paid_price · payment_type · status</td><td>order_no → PG사 식별자. 내부 PK 외부 비노출</td></tr>
+                    <tr><td class="mono">payment_details</td><td>payment_id · tx_code · amount</td><td>환불은 음수(-) 금액으로 기록</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="doc-section">
+                <div class="doc-h2">Server B — inventorydb</div>
+                <table class="schema-table">
+                    <thead><tr><th>테이블</th><th>주요 컬럼</th><th>비고</th></tr></thead>
+                    <tbody>
+                    <tr><td class="mono">products</td><td>id · name · price · stock_quantity · is_displayed</td><td>재고·상품 통합. is_displayed로 품절 전시 제어</td></tr>
+                    <tr><td class="mono">manufactures</td><td>id · order_id · status</td><td>ACCEPTED→COMPLETED→DELIVERED / DISCARDED</td></tr>
+                    </tbody>
+                </table>
+                <div class="doc-desc" style="margin-top:12px">모든 테이블: <span class="mono">is_deleted · created_at · updated_at</span> 포함 (Soft Delete). 서비스 간 FK 제약 없음 — 타입 일치만 보장.</div>
+            </div>
+        </div>
+
+        <!-- 2-3. 배포환경 -->
+        <div class="doc-page" id="doc-deploy">
+            <div class="doc-section">
+                <div class="doc-h2">배포 전략</div>
+                <div class="doc-desc">EC2 t3.micro 1대에 Docker Compose로 전체 서비스를 올린다. 관리형 서비스(RDS, ElastiCache) 미사용 — MySQL·Redis도 컨테이너로 운영해 비용 최소화.</div>
+                <div class="arch-diagram">
+                    <span class="hl">EC2 t3.micro</span>  <span class="dim">(영업시간 EventBridge 스케줄 온/오프)</span>
+                    └── docker-compose up
+                    ├── <span class="hl2">order-service      :8080</span>
+                    ├── <span class="hl2">inventory-service  :8081</span>
+                    ├── <span class="hl">order-db      MySQL :3316</span>   <span class="dim">← init-sql/order 자동 초기화</span>
+                    ├── <span class="hl">inventory-db  MySQL :3317</span>   <span class="dim">← init-sql/inventory + 시드 데이터</span>
+                    ├── <span class="hl3">redis              :6379</span>   <span class="dim">← 재고 캐시 · 세션 UUID</span>
+                    └── <span class="hl3">rabbitmq           :5672</span>   <span class="dim">← 제조지시 · 재고변동 이벤트</span>
+
+                    <span class="dim">향후: CloudFormation IaC 관리 예정
+      트래픽 증가 시 ECS Fargate 마이그레이션 고려</span>
+                </div>
+            </div>
+            <div class="doc-section">
+                <div class="doc-h2">비용 구조</div>
+                <table class="schema-table">
+                    <thead><tr><th>항목</th><th>선택</th><th>이유</th></tr></thead>
+                    <tbody>
+                    <tr><td>서버</td><td>EC2 t3.micro</td><td>프리티어 1년 무료. 이후 ~$8/월</td></tr>
+                    <tr><td>DB</td><td>컨테이너 MySQL</td><td>RDS 대비 $15~20/월 절감</td></tr>
+                    <tr><td>캐시</td><td>컨테이너 Redis</td><td>ElastiCache 대비 비용 절감</td></tr>
+                    <tr><td>운영 시간</td><td>영업시간만 가동</td><td>EventBridge 스케줄로 자동 온/오프</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2-4. 진행현황 -->
+        <div class="doc-page" id="doc-progress">
+            <div class="doc-section">
+                <div class="doc-h2">개발 진행 현황</div>
+                <div class="progress-section">
+                    <div class="progress-item">
+                        <div class="progress-label"><span>✅ 프로젝트 구조 설계</span><span>완료</span></div>
+                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>✅ Docker Compose 인프라</span><span>완료</span></div>
+                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>✅ DB 스키마 · JPA Entity</span><span>완료</span></div>
+                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>✅ 고객 주문 화면 (MVC)</span><span>완료</span></div>
+                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>✅ 관리자 콘솔 화면 (MVC)</span><span>완료</span></div>
+                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>🔲 Repository / Service 레이어</span><span>예정</span></div>
+                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>🔲 Toss PG 연동</span><span>예정</span></div>
+                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>🔲 Redis 재고 동기화</span><span>예정</span></div>
+                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>🔲 RabbitMQ 메시지 연동</span><span>예정</span></div>
+                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>🔲 SSE 실시간 알림</span><span>예정</span></div>
+                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-label"><span>🔲 AWS 배포 · CloudFormation</span><span>예정</span></div>
+                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div><!-- main-wrap -->
+
+<div id="toast"></div>
+
+<script>
+    // ── 페이지 전환 ──────────────────────────────
+    function switchPage(name, el) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      el.classList.add('active');
+      document.getElementById('page-title').textContent = name === 'order' ? '주문관리' : '구조 해설';
+
+      const sub1 = document.getElementById('docs-sub-1');
+      const sub2 = document.getElementById('docs-sub-2');
+      sub1.style.display = name === 'docs' ? 'block' : 'none';
+      sub2.style.display = name === 'docs' ? 'block' : 'none';
+    }
+
+    // ── 구조해설 탭 ──────────────────────────────
+    function switchDoc(name, el) {
+      document.querySelectorAll('.doc-page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.docs-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('doc-' + name).classList.add('active');
+      el.classList.add('active');
+    }
+
+    // ── 세션 선택 ──────────────────────────────
+    function selectSession(id, el) {
+      document.querySelectorAll('.session-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    // ── 주문 타입 선택 ──────────────────────────
+    function selectOrderType(type, el) {
+      document.querySelectorAll('.order-type-btn').forEach(b => b.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    // ── POS 주문 (데모) ──────────────────────────
+    let orderCounter = 100;
+    function posOrder() {
+      const no = 'P' + (++orderCounter);
+      addMfgRow(no, '현장 주문', 'chip-paid', '결제 완료');
+      addLogRow(no, '현장 직접 주문', 8000);
+      showD2();
+      showToast('📋 ' + no + ' POS 주문이 접수되었습니다.');
+    }
+
+    // default2 표시
+    function showD2() {
+      document.getElementById('sess-default2').style.display = 'block';
+    }
+
+    // ── 환불 조회 (데모) ──────────────────────────
+    function lookupOrder() {
+      const no = document.getElementById('refund-orderno').value.trim();
+      if (!no) return showToast('⚠ 주문번호를 입력하세요.');
+      document.getElementById('refund-max').textContent = '/ 24,000 원';
+      showToast('🔍 ' + no + ' 조회 완료');
+    }
+
+    function processRefund() {
+      const no  = document.getElementById('refund-orderno').value.trim();
+      const amt = document.getElementById('refund-amount').value.trim();
+      if (!no || !amt) return showToast('⚠ 주문번호와 금액을 입력하세요.');
+      addLogRow(no, '환불 처리', -parseInt(amt.replace(/,/g, '')));
+      document.getElementById('refund-orderno').value = '';
+      document.getElementById('refund-amount').value  = '';
+      document.getElementById('refund-max').textContent = '/ — 원';
+      showToast('↩ ' + no + ' 환불 처리 완료');
+    }
+
+    // ── 재고 조정 ──────────────────────────────
+    function adjustStock() {
+      [1,2,3].forEach(i => {
+        const adj = parseInt(document.getElementById('adj-' + i).value) || 0;
+        if (adj === 0) return;
+        const cell = document.getElementById('stock-' + i);
+        const cur  = parseInt(cell.textContent) + adj;
+        cell.textContent = cur;
+        cell.className   = cur <= 0 ? 'stock-zero' : '';
+        document.getElementById('adj-' + i).value = '';
+      });
+      showToast('✅ 재고가 업데이트되었습니다.');
+    }
+
+    // ── 전달 완료 ──────────────────────────────
+    function deliver(orderNo, btn) {
+      btn.disabled = true;
+      btn.textContent = '완료';
+      btn.style.color = 'var(--muted)';
+      const row = btn.closest('tr');
+      row.querySelector('.chip').className = 'chip chip-delivered';
+      row.querySelector('.chip').textContent = '전달 완료';
+      showToast('✅ ' + orderNo + ' 전달 완료 처리');
+    }
+
+    // ── 제조현황 row 추가 ──────────────────────
+    function addMfgRow(no, desc, chipCls, chipLabel) {
+      const tbody = document.getElementById('mfg-tbody');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mfg-order-no">${no}</td>
+        <td class="mfg-desc">${desc}</td>
+        <td><span class="chip ${chipCls}">${chipLabel}</span></td>
+        <td></td>`;
+      tbody.prepend(tr);
+    }
+
+    // ── 로그 row 추가 ──────────────────────────
+    function addLogRow(no, desc, amount) {
+      const list = document.getElementById('log-list');
+      const now  = new Date();
+      const time = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+      const div  = document.createElement('div');
+      div.className = 'log-item';
+      const isRefund = amount < 0;
+      div.innerHTML = `
+        <span class="log-time">${time}</span>
+        <div class="log-body">
+          <div class="log-orderno">${no}</div>
+          <div class="log-desc">${desc}</div>
+        </div>
+        <span class="log-amount${isRefund ? ' log-refund' : ''}">${isRefund ? '↩ 환불' : '₩' + Math.abs(amount).toLocaleString()}</span>`;
+      list.prepend(div);
+    }
+
+    // ── Toast ──────────────────────────────────
+    let toastTimer;
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+    }
+</script>
+</body>
+</html>

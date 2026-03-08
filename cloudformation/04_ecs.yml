@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: FoodTruck - ECS Cluster + ALB + Target Groups (no Task/Service)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: foodtruck
+
+  TaskCpu:
+    Type: String
+    Default: '512'
+
+  TaskMemory:
+    Type: String
+    Default: '1024'
+
+Resources:
+
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${ProjectName}-cluster
+
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-ecs-execution-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  OrderLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${ProjectName}/order-service
+      RetentionInDays: 7
+
+  InventoryLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${ProjectName}/inventory-service
+      RetentionInDays: 7
+
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${ProjectName}-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - Fn::ImportValue: !Sub ${ProjectName}-PublicSubnet1Id
+        - Fn::ImportValue: !Sub ${ProjectName}-PublicSubnet2Id
+      SecurityGroups:
+        - Fn::ImportValue: !Sub ${ProjectName}-SgAlbId
+
+  OrderTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${ProjectName}-order-tg
+      Port: 8080
+      Protocol: HTTP
+      TargetType: ip
+      VpcId:
+        Fn::ImportValue: !Sub ${ProjectName}-VpcId
+      HealthCheckPath: /actuator/health
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+
+  InventoryTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${ProjectName}-inventory-tg
+      Port: 8081
+      Protocol: HTTP
+      TargetType: ip
+      VpcId:
+        Fn::ImportValue: !Sub ${ProjectName}-VpcId
+      HealthCheckPath: /actuator/health
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+
+  AlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref OrderTargetGroup
+
+Outputs:
+  AlbDnsName:
+    Value: !GetAtt Alb.DNSName
+    Export:
+      Name: !Sub ${ProjectName}-AlbDnsName
+
+  AlbHostedZoneId:
+    Value: !GetAtt Alb.CanonicalHostedZoneID
+    Export:
+      Name: !Sub ${ProjectName}-AlbHostedZoneId
+
+  EcsClusterName:
+    Value: !Ref EcsCluster
+    Export:
+      Name: !Sub ${ProjectName}-EcsClusterName
+
+  EcsTaskExecutionRoleArn:
+    Value: !GetAtt EcsTaskExecutionRole.Arn
+    Export:
+      Name: !Sub ${ProjectName}-EcsTaskExecutionRoleArn
+
+  OrderTargetGroupArn:
+    Value: !Ref OrderTargetGroup
+    Export:
+      Name: !Sub ${ProjectName}-OrderTargetGroupArn
+
+  InventoryTargetGroupArn:
+    Value: !Ref InventoryTargetGroup
+    Export:
+      Name: !Sub ${ProjectName}-InventoryTargetGroupArn
+
+  OrderLogGroupName:
+    Value: !Ref OrderLogGroup
+    Export:
+      Name: !Sub ${ProjectName}-OrderLogGroupName
+
+  InventoryLogGroupName:
+    Value: !Ref InventoryLogGroup
+    Export:
+      Name: !Sub ${ProjectName}-InventoryLogGroupName
+
+  TaskCpu:
+    Value: !Ref TaskCpu
+    Export:
+      Name: !Sub ${ProjectName}-TaskCpu
+
+  TaskMemory:
+    Value: !Ref TaskMemory
+    Export:
+      Name: !Sub ${ProjectName}-TaskMemory

@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  FoodTruck - Route53 + ACM
+  도메인 연결 및 HTTPS 인증서 발급
+  주의: ACM 인증서는 us-east-1이 아닌 ALB와 같은 리전(ap-northeast-2)에서 발급
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: foodtruck
+
+  DomainName:
+    Type: String
+    Description: 보유한 도메인 (예: foodtruck.example.com)
+
+  HostedZoneId:
+    Type: String
+    Description: Route53 Hosted Zone ID (도메인 등록 후 콘솔에서 확인)
+
+Resources:
+
+  # ── ACM 인증서 ────────────────────────────
+  # DNS 검증 방식 — Route53에 CNAME 자동 생성
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub 'www.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+
+  # ── ALB HTTPS Listener ────────────────────
+  AlbListenerHttps:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Fn::ImportValue: !Sub ${ProjectName}-AlbDnsName
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref Certificate
+      DefaultActions:
+        # 기본은 order-service로 (관리자/주문 화면 모두 A서버)
+        - Type: forward
+          ForwardConfig:
+            TargetGroups:
+              - TargetGroupArn:
+                  Fn::ImportValue: !Sub ${ProjectName}-OrderTargetGroupArn
+                Weight: 1
+
+  # ── Route53 A Record ─────────────────────
+  # ALB를 도메인에 연결 (Alias 레코드)
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName:
+          Fn::ImportValue: !Sub ${ProjectName}-AlbDnsName
+        HostedZoneId:
+          Fn::ImportValue: !Sub ${ProjectName}-AlbHostedZoneId
+        EvaluateTargetHealth: true
+
+  # www 리다이렉트용 레코드
+  WwwDnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'www.${DomainName}'
+      Type: A
+      AliasTarget:
+        DNSName:
+          Fn::ImportValue: !Sub ${ProjectName}-AlbDnsName
+        HostedZoneId:
+          Fn::ImportValue: !Sub ${ProjectName}-AlbHostedZoneId
+        EvaluateTargetHealth: true
+
+Outputs:
+  CertificateArn:
+    Value: !Ref Certificate
+    Export:
+      Name: !Sub ${ProjectName}-CertificateArn
+
+  ServiceUrl:
+    Value: !Sub 'https://${DomainName}'
+    Description: 서비스 접속 URL

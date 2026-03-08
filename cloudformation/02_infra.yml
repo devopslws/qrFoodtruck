@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: FoodTruck - Infra EC2 (MySQL A/B + Redis + RabbitMQ via docker-compose)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: foodtruck
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small, t3.medium]
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+
+  GitHubRawBaseUrl:
+    Type: String
+    Default: https://raw.githubusercontent.com/devopslws/qrFoodtruck/main
+
+Resources:
+
+  InfraInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-infra-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  InfraInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InfraInstanceRole
+
+  InfraEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref InfraInstanceProfile
+      ImageId: !Sub '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
+      SubnetId:
+        Fn::ImportValue: !Sub ${ProjectName}-PublicSubnet1Id
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub ${ProjectName}-SgInfraId
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-infra
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          dnf update -y
+          dnf install -y docker
+          systemctl enable docker
+          systemctl start docker
+          usermod -aG docker ec2-user
+          COMPOSE_VERSION=v2.27.0
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -SL "https://github.com/docker/compose/releases/download/${!COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          mkdir -p /opt/foodtruck/init-sql/order /opt/foodtruck/init-sql/inventory
+          cd /opt/foodtruck
+          curl -fsSL ${GitHubRawBaseUrl}/init-sql/order/01_schema.sql -o init-sql/order/01_schema.sql
+          curl -fsSL ${GitHubRawBaseUrl}/init-sql/inventory/01_schema.sql -o init-sql/inventory/01_schema.sql
+          cat > docker-compose.yml << 'COMPOSE'
+          version: '3.8'
+          services:
+            order-db:
+              image: mysql:8.0
+              container_name: order-db
+              ports:
+                - "3316:3306"
+              environment:
+                MYSQL_ROOT_PASSWORD: rootpass
+                MYSQL_DATABASE: orderdb
+                MYSQL_USER: order_user
+                MYSQL_PASSWORD: order_pass
+              volumes:
+                - ./init-sql/order:/docker-entrypoint-initdb.d
+              restart: always
+            inventory-db:
+              image: mysql:8.0
+              container_name: inventory-db
+              ports:
+                - "3317:3306"
+              environment:
+                MYSQL_ROOT_PASSWORD: rootpass
+                MYSQL_DATABASE: inventorydb
+                MYSQL_USER: inventory_user
+                MYSQL_PASSWORD: inventory_pass
+              volumes:
+                - ./init-sql/inventory:/docker-entrypoint-initdb.d
+              restart: always
+            redis:
+              image: redis:7.2-alpine
+              container_name: redis
+              ports:
+                - "6379:6379"
+              command: redis-server --requirepass redis123
+              restart: always
+            rabbitmq:
+              image: rabbitmq:3.13-management-alpine
+              container_name: rabbitmq
+              ports:
+                - "5672:5672"
+                - "15672:15672"
+              environment:
+                RABBITMQ_DEFAULT_USER: admin
+                RABBITMQ_DEFAULT_PASS: admin123
+              restart: always
+          COMPOSE
+          docker compose up -d
+
+  InfraEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref InfraEC2
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-infra-eip
+
+Outputs:
+  InfraPublicIp:
+    Value: !Ref InfraEIP
+    Export:
+      Name: !Sub ${ProjectName}-InfraPublicIp
+
+  InfraInstanceId:
+    Value: !Ref InfraEC2
+    Export:
+      Name: !Sub ${ProjectName}-InfraInstanceId
