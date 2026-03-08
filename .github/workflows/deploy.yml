@@ -39,13 +39,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: order-service-jar
-          path: order-service/build/libs/*.jar
+          path: orderService/build/libs/*.jar
 
       - name: Upload inventory-service artifact
         uses: actions/upload-artifact@v4
         with:
           name: inventory-service-jar
-          path: inventory-service/build/libs/*.jar
+          path: inventoryService/build/libs/*.jar
 
   push-ecr:
     name: Docker Build and Push to ECR
