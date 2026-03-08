@@ -8,7 +8,7 @@ spring:
     password: inventory_pass
   jpa:
     hibernate:
-      ddl-auto: create #validate는 운영 옵션...이고 스키마는 매번 켤 때마다 초기화 하기로
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:

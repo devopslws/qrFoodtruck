@@ -1,9 +1,0 @@
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3317/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
-    username: inventory_user
-    password: inventory_pass
-  jpa:
-    hibernate:
-      ddl-auto: update #일단 실습용은 켜두자
-    database-platform: org.hibernate.dialect.MySQLDialect

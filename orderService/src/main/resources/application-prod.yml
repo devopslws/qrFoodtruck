@@ -1,9 +1,0 @@
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3316/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
-    username: order_user
-    password: order_pass
-  jpa:
-    hibernate:
-      ddl-auto: update
-    database-platform: org.hibernate.dialect.MySQLDialect

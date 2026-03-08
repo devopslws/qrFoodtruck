@@ -14,7 +14,7 @@ build/
 
 # 환경설정 (민감정보)
 application-local.yml
-application-prod.yml
+
 *.env
 
 # OS

@@ -155,7 +155,6 @@ jobs:
                 "image": "${IMAGE}",
                 "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
                 "environment": [
-                  {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
                   {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3316/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
                   {"name": "SPRING_DATASOURCE_USERNAME", "value": "order_user"},
                   {"name": "SPRING_DATASOURCE_PASSWORD", "value": "order_pass"},
@@ -203,7 +202,6 @@ jobs:
                 "image": "${IMAGE}",
                 "portMappings": [{"containerPort": 8081, "protocol": "tcp"}],
                 "environment": [
-                  {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
                   {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3317/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
                   {"name": "SPRING_DATASOURCE_USERNAME", "value": "inventory_user"},
                   {"name": "SPRING_DATASOURCE_PASSWORD", "value": "inventory_pass"},
