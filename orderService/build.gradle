@@ -28,6 +28,8 @@ dependencies {
 
     //탬플릿 인식을 위한 의존성 추가
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    //healthCehck
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
 }
 
 // Q클래스 생성 경로 설정(QueryDSL용)
