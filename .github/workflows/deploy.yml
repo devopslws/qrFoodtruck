@@ -30,10 +30,10 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build order-service
-        run: ./gradlew :order-service:build -x test
+        run: ./gradlew :orderService:build -x test
 
       - name: Build inventory-service
-        run: ./gradlew :inventory-service:build -x test
+        run: ./gradlew :inventoryService:build -x test
 
       - name: Upload order-service artifact
         uses: actions/upload-artifact@v4
