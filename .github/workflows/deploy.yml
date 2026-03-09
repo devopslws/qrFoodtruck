@@ -155,6 +155,9 @@ jobs:
                 "image": "${IMAGE}",
                 "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
                 "environment": [
+                  {"name": "INVENTORY_SERVICE_URL", "value": "http://${{ steps.infra.outputs.infra_ip }}:8081"}
+                  {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
+                  {"name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update"},
                   {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3316/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
                   {"name": "SPRING_DATASOURCE_USERNAME", "value": "order_user"},
                   {"name": "SPRING_DATASOURCE_PASSWORD", "value": "order_pass"},
@@ -202,6 +205,8 @@ jobs:
                 "image": "${IMAGE}",
                 "portMappings": [{"containerPort": 8081, "protocol": "tcp"}],
                 "environment": [
+                  {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
+                  {"name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update"},
                   {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3317/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
                   {"name": "SPRING_DATASOURCE_USERNAME", "value": "inventory_user"},
                   {"name": "SPRING_DATASOURCE_PASSWORD", "value": "inventory_pass"},
@@ -300,6 +305,22 @@ jobs:
             --cluster $CLUSTER \
             --services ${{ env.PROJECT_NAME }}-inventory-service \
             --region ${{ env.AWS_REGION }}
+
+      - name: Deploy Budget Guard stack
+        run: |
+          aws cloudformation deploy \
+            --template-file cloudformation/06_budget.yml \
+            --stack-name foodtruck-budget \
+            --parameter-overrides \
+                ECSClusterName=foodtruck-cluster \
+                ECSServiceNames="foodtruck-order-service,foodtruck-inventory-service" \
+                MonthlyBudgetUSD=10 \
+                NotificationEmail=${{ secrets.NOTIFICATION_EMAIL }} \
+                NotificationPhoneNumber=${{ secrets.NOTIFICATION_PHONE }} \
+                StackEnv=dev \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --no-fail-on-empty-changeset
 
       - name: Done
         run: echo "Deploy complete - image tag ${{ needs.push-ecr.outputs.image-tag }}"

@@ -438,13 +438,22 @@
 
 <script>
     // ──────────────────────────────────────────────
-    // 목 데이터 (실제 서비스는 서버에서 th:each / fetch로 대체)
+    // 메뉴 데이터 (서버 API에서 로드)
     // ──────────────────────────────────────────────
-    const MENU_DATA = [
-      { id: 1, name: '짜장면',  price: 8000,  stock: 5 },
-      { id: 2, name: '짬뽕',    price: 10000, stock: 5 },
-      { id: 3, name: '탕수육',  price: 22000, stock: 0 },
-    ];
+    let MENU_DATA = [];
+
+    async function loadMenu() {
+      try {
+        const res = await fetch('/api/products');
+        if (!res.ok) throw new Error('메뉴 로드 실패');
+        MENU_DATA = await res.json();
+        renderMenu();
+      } catch (e) {
+        console.error('[Menu] 로드 실패:', e);
+        document.getElementById('menu-list').innerHTML =
+          '<div style="color:#ff4d4d;padding:1rem">메뉴를 불러오지 못했습니다.</div>';
+      }
+    }
 
     // ──────────────────────────────────────────────
     // 상태
@@ -539,6 +548,8 @@
       const list = document.getElementById('menu-list');
       list.innerHTML = MENU_DATA.map((item, i) => {
         const sold = item.stock === 0;
+        const cartQty = cart[item.id] ? cart[item.id].qty : 0;
+        const maxReached = cartQty >= item.stock;
         return `
           <div class="menu-item${sold ? ' sold-out' : ''}">
             <span class="menu-num">${i + 1}</span>
@@ -546,7 +557,9 @@
             <span class="menu-price">${item.price.toLocaleString()}</span>
             ${sold
               ? `<button class="btn-sold">품절</button>`
-              : `<button class="btn-add" onclick="addToCart(${item.id})">담기</button>`
+              : maxReached
+                ? `<button class="btn-sold" disabled>max주문</button>`
+                : `<button class="btn-add" onclick="addToCart(${item.id})">담기</button>`
             }
           </div>`;
       }).join('');
@@ -559,6 +572,15 @@
       const item = MENU_DATA.find(m => m.id === productId);
       if (!item || item.stock === 0) return;
 
+      // 재고 초과 방어
+      const cartQty = cart[productId] ? cart[productId].qty : 0;
+      console.log(cartQty)
+      console.log(item)
+      if (cartQty >= item.stock) {
+        showToast('⚠ 재고가 부족합니다.');
+        return;
+      }
+
       if (!cart[productId]) {
         cart[productId] = { name: item.name, price: item.price, qty: 1 };
       } else {
@@ -570,15 +592,25 @@
       startIdleTimer();
 
       renderCart();
+      renderMenu();
       showToast(`🛒 ${item.name} 담았습니다`);
     }
 
     function changeQty(productId, delta) {
       if (!cart[productId]) return;
-      cart[productId].qty += delta;
+      const item = MENU_DATA.find(m => m.id === productId);
+      const maxStock = item ? item.stock : 999;
+
+      const newQty = cart[productId].qty + delta;
+      if (newQty > maxStock) {
+        showToast('⚠ 재고가 부족합니다.');
+        return;
+      }
+      cart[productId].qty = newQty;
       if (cart[productId].qty <= 0) delete cart[productId];
       startIdleTimer();
       renderCart();
+      renderMenu();
     }
 
     function removeFromCart(productId) {
@@ -615,7 +647,8 @@
             <div class="qty-control">
               <button class="qty-btn" onclick="changeQty(${id}, -1)">−</button>
               <span class="qty-val">${item.qty}</span>
-              <button class="qty-btn" onclick="changeQty(${id}, +1)">+</button>
+              <button class="qty-btn" onclick="changeQty(${id}, +1)"
+                ${(() => { const m = MENU_DATA.find(m => m.id === Number(id)); return m && item.qty >= m.stock ? 'disabled style=\"opacity:0.3;cursor:not-allowed\"' : ''; })()}>+</button>
             </div>
             <span class="cart-item-price">₩${subtotal.toLocaleString()}</span>
             <button class="btn-remove" onclick="removeFromCart(${id})">✕</button>
@@ -741,7 +774,7 @@
     // ──────────────────────────────────────────────
     // Init
     // ──────────────────────────────────────────────
-    renderMenu();
+    loadMenu();   // 서버에서 메뉴 로드 후 renderMenu() 호출
     renderCart();
     renderOrders();
 </script>

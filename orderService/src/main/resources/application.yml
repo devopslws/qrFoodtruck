@@ -24,6 +24,11 @@ spring:
     username: admin
     password: admin123
 
+  web:
+    resources:
+      cache:
+        period: 0
+
   management:
     endpoints:
       web:
@@ -32,3 +37,7 @@ spring:
     endpoint:
       health:
         show-details: never
+
+services:
+  inventory:
+    url: ${INVENTORY_SERVICE_URL:http://localhost:8081}

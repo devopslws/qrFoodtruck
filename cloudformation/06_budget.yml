@@ -1,0 +1,256 @@
+#목적: AWS budget 지정 예산 초과시 ECS를 내린다.
+#     SSM parameter에 수행이력을 저장, 월 1회만 작동한다(무한 강제종료 방지)
+#     연락처는 githubActions에 보관
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Budget guard - notify and stop ECS on budget exceeded.
+
+Parameters:
+  MonthlyBudgetUSD:
+    Type: Number
+    Default: 10
+  ECSClusterName:
+    Type: String
+  ECSServiceNames:
+    Type: String
+  NotificationEmail:
+    Type: String
+  NotificationPhoneNumber:
+    Type: String
+  StackEnv:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+
+Resources:
+  BudgetAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-budget-alert"
+      Subscriptions:
+        - Protocol: email
+          Endpoint: !Ref NotificationEmail
+        - Protocol: sms
+          Endpoint: !Ref NotificationPhoneNumber
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BudgetGuardPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ecs:UpdateService, ecs:DescribeServices, ecs:ListServices]
+                Resource: "*"
+              - Effect: Allow
+                Action: [ssm:GetParameter, ssm:PutParameter]
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/*"
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref BudgetAlertTopic
+              - Effect: Allow
+                Action: [events:EnableRule, events:DisableRule]
+                Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-budget-check-schedule"
+              - Effect: Allow
+                Action: ce:GetCostAndUsage
+                Resource: "*"
+
+  ECSWatcherToggleFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ecs-watcher-toggle"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          ECS_CLUSTER: !Ref ECSClusterName
+          ECS_SERVICES: !Ref ECSServiceNames
+          BUDGET_CHECK_RULE: !Sub "${AWS::StackName}-budget-check-schedule"
+      Code:
+        ZipFile: |
+          import os, boto3
+          ecs = boto3.client('ecs')
+          events = boto3.client('events')
+          CLUSTER = os.environ['ECS_CLUSTER']
+          SERVICES = [s.strip() for s in os.environ['ECS_SERVICES'].split(',')]
+          RULE_NAME = os.environ['BUDGET_CHECK_RULE']
+          def handler(event, context):
+              total_running = 0
+              try:
+                  resp = ecs.describe_services(cluster=CLUSTER, services=SERVICES)
+                  for svc in resp['services']:
+                      running = svc.get('runningCount', 0)
+                      total_running += running
+              except Exception as e:
+                  return {"status": "error", "message": str(e)}
+              if total_running > 0:
+                  events.enable_rule(Name=RULE_NAME)
+                  return {"status": "enabled", "total_running": total_running}
+              else:
+                  events.disable_rule(Name=RULE_NAME)
+                  return {"status": "disabled"}
+
+  ECSEventInvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ECSWatcherToggleFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-ecs-state-change"
+
+  ECSStateChangeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${AWS::StackName}-ecs-state-change"
+      EventPattern:
+        source: [aws.ecs]
+        detail-type: [ECS Task State Change]
+        detail:
+          clusterArn:
+            - !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ECSClusterName}"
+      State: ENABLED
+      Targets:
+        - Id: ECSWatcherToggleTarget
+          Arn: !GetAtt ECSWatcherToggleFunction.Arn
+
+  BudgetCheckerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-budget-checker"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      Environment:
+        Variables:
+          ECS_CLUSTER: !Ref ECSClusterName
+          ECS_SERVICES: !Ref ECSServiceNames
+          MONTHLY_BUDGET_USD: !Ref MonthlyBudgetUSD
+          SNS_TOPIC_ARN: !Ref BudgetAlertTopic
+          SSM_PREFIX: !Sub "/${AWS::StackName}"
+      Code:
+        ZipFile: |
+          import os, boto3
+          from datetime import datetime, timezone
+          ecs = boto3.client('ecs')
+          ssm = boto3.client('ssm')
+          sns = boto3.client('sns')
+          ce = boto3.client('ce', region_name='us-east-1')
+          CLUSTER = os.environ['ECS_CLUSTER']
+          SERVICES = [s.strip() for s in os.environ['ECS_SERVICES'].split(',')]
+          BUDGET_USD = float(os.environ['MONTHLY_BUDGET_USD'])
+          TOPIC_ARN = os.environ['SNS_TOPIC_ARN']
+          SSM_PREFIX = os.environ['SSM_PREFIX']
+          def get_alarm_history_key():
+              now = datetime.now(timezone.utc)
+              return f"{SSM_PREFIX}/alarm-fired/{now.strftime('%Y-%m')}"
+          def get_this_month_cost():
+              now = datetime.now(timezone.utc)
+              start = now.strftime('%Y-%m-01')
+              end = now.strftime('%Y-%m-%d')
+              if start == end:
+                  return 0.0
+              resp = ce.get_cost_and_usage(
+                  TimePeriod={'Start': start, 'End': end},
+                  Granularity='MONTHLY',
+                  Metrics=['UnblendedCost']
+              )
+              return float(resp['ResultsByTime'][0]['Total']['UnblendedCost']['Amount'])
+          def handler(event, context):
+              try:
+                  actual_cost = get_this_month_cost()
+              except Exception as e:
+                  return {"status": "error", "message": str(e)}
+              if actual_cost <= BUDGET_USD:
+                  return {"status": "ok", "actual_cost": actual_cost}
+              flag_key = get_alarm_history_key()
+              try:
+                  resp = ssm.get_parameter(Name=flag_key)
+                  if resp['Parameter']['Value'] == 'true':
+                      return {"status": "already_alerted"}
+              except ssm.exceptions.ParameterNotFound:
+                  pass
+              message = f"[예산 초과 알림]\n이번 달 지출: ${actual_cost:.2f}\n설정 예산: ${BUDGET_USD:.2f}\nECS 서비스를 중지합니다."
+              try:
+                  sns.publish(TopicArn=TOPIC_ARN, Message=message, Subject="[AWS] 예산 초과 - ECS 중지")
+              except Exception as e:
+                  print(f"[WARN] SNS 발송 실패: {e}")
+              stopped, errors = [], []
+              for service in SERVICES:
+                  try:
+                      ecs.update_service(cluster=CLUSTER, service=service, desiredCount=0)
+                      stopped.append(service)
+                  except Exception as e:
+                      errors.append(f"{service}: {e}")
+              ssm.put_parameter(Name=flag_key, Value='true', Type='String', Overwrite=True)
+              return {"status": "fired", "actual_cost": actual_cost, "stopped_services": stopped, "errors": errors}
+
+  BudgetCheckerInvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt BudgetCheckerFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-budget-check-schedule"
+
+  BudgetCheckScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${AWS::StackName}-budget-check-schedule"
+      ScheduleExpression: "rate(6 hours)"
+      State: DISABLED
+      Targets:
+        - Id: BudgetCheckerTarget
+          Arn: !GetAtt BudgetCheckerFunction.Arn
+
+  ECSRestoreFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ecs-restore"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      Environment:
+        Variables:
+          ECS_CLUSTER: !Ref ECSClusterName
+          ECS_SERVICES: !Ref ECSServiceNames
+      Code:
+        ZipFile: |
+          import os, boto3
+          ecs = boto3.client('ecs')
+          CLUSTER = os.environ['ECS_CLUSTER']
+          SERVICES = [s.strip() for s in os.environ['ECS_SERVICES'].split(',')]
+          def handler(event, context):
+              desired_counts = event.get('desired_counts', {})
+              restored, errors = [], []
+              for service in SERVICES:
+                  count = desired_counts.get(service, 1)
+                  try:
+                      ecs.update_service(cluster=CLUSTER, service=service, desiredCount=count)
+                      restored.append(f"{service} -> desiredCount={count}")
+                  except Exception as e:
+                      errors.append(f"{service}: {e}")
+              return {"status": "restored", "restored_services": restored, "errors": errors}
+
+Outputs:
+  BudgetAlertTopicArn:
+    Value: !Ref BudgetAlertTopic
+  ECSRestoreFunctionName:
+    Value: !Ref ECSRestoreFunction
+  HowToRestore:
+    Description: ECS 서비스 재기동 CLI 명령어
+    Value: !Sub "aws lambda invoke --function-name ${AWS::StackName}-ecs-restore --payload '{\"desired_counts\":{\"foodtruck-order-service\":1,\"foodtruck-inventory-service\":1}}' --cli-binary-format raw-in-base64-out response.json"
