@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * SSE 연결 엔드포인트
@@ -30,7 +31,11 @@ public class SseController {
      * - Toss 리다이렉트 복귀 후 진행중 주문 있을 때
      */
     @GetMapping(value = "/connect", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter connect(@RequestParam String uuid) {
+    public SseEmitter connect(@RequestParam String uuid, HttpServletResponse response) {
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+
         if (!sessionRedisManager.exists(uuid)) {
             // 세션 만료 후 재연결 시도 (정상 케이스 — 클라이언트가 재연결 로직 실행 중)
             // uuid를 재등록하고 연결 허용 (heartbeat가 계속 살아있으면 TTL 갱신됨)
