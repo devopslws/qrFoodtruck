@@ -1,15 +1,11 @@
 # 🚚 QR FoodTruck — 팝업 푸드트럭 주문 시스템
-
 > 회원가입 없이 QR 스캔만으로 주문 · 결제 · 조리 상태를 실시간으로 확인하는 푸드트럭 전용 주문 플랫폼
 > </br></br>
-> [고객 주문 화면: mobile 권장]</br>
-> http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/orderView
-> > ![서비스 바로가기 QR](./resources/orderViewQr.jpeg)
-> 
-> > [주문관리 화면: pc 권장]</br>
-http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/admin
-> ![서비스 바로가기 QR](./resources/adminQr.jpeg)
 
+| [고객 주문 화면 (Mobile 권장)] | [주문 관리 화면 (PC 권장)] |
+| :--- | :--- |
+| <a href="http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/orderView"><img src="./resources/orderViewQr.jpeg" width="150"></a> | <a href="http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/admin"><img src="./resources/adminQr.jpeg" width="150"></a> |
+| **URL:** http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/orderView | **URL:** http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/admin |
 ---
 
 ## 📌 프로젝트 개요
