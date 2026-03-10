@@ -11,8 +11,9 @@ Parameters:
     Type: String
   NotificationEmail:
     Type: String
-  NotificationPhoneNumber:
-    Type: String
+  # NotificationPhoneNumber 제거
+  # SNS SMS가 ap-northeast-2 미지원이므로 파라미터 자체를 삭제
+  # Early Validation이 전화번호 형식까지 검증하여 FAILED 유발
   StackEnv:
     Type: String
     Default: dev

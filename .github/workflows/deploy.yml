@@ -144,48 +144,78 @@ jobs:
         id: order-task
         run: |
           IMAGE="${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/order-service:${{ needs.push-ecr.outputs.image-tag }}"
-          cat > /tmp/order-task.json << ENDJSON
-          {
+          # ---------------------------------------------------------------
+          # [FIX 1] python3 -c 로 JSON 생성 → heredoc + 변수 치환 방식 대비
+          #         쉼표 누락·특수문자 오염 문제를 근본적으로 차단
+          # ---------------------------------------------------------------
+          python3 - <<'PYEOF'
+          import json, os
+
+          infra_ip      = os.environ["INFRA_IP"]
+          execution_role= os.environ["EXECUTION_ROLE"]
+          image         = os.environ["IMAGE"]
+          order_log     = os.environ["ORDER_LOG"]
+          aws_region    = os.environ["AWS_REGION"]
+
+          # [FIX 2] 민감 정보는 SSM Parameter Store에서 런타임에 주입 (secrets 블록)
+          task = {
             "family": "foodtruck-order-task",
             "cpu": "512",
             "memory": "1024",
             "networkMode": "awsvpc",
             "requiresCompatibilities": ["FARGATE"],
-            "executionRoleArn": "${{ steps.infra.outputs.execution_role }}",
+            "executionRoleArn": execution_role,
             "containerDefinitions": [
               {
                 "name": "order-service",
-                "image": "${IMAGE}",
+                "image": image,
                 "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
                 "environment": [
-                  {"name": "INVENTORY_SERVICE_URL", "value": "http://${{ steps.infra.outputs.infra_ip }}:8081"},
-                  {"name": "TOSS_CLIENT_KEY", "value": "${{ secrets.TOSS_CLIENT_KEY }}"},
-                  {"name": "TOSS_SECRET_KEY", "value": "${{ secrets.TOSS_SECRET_KEY }}"},
-                  {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
-                  {"name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update"},
-                  {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3316/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
-                  {"name": "SPRING_DATASOURCE_USERNAME", "value": "order_user"},
-                  {"name": "SPRING_DATASOURCE_PASSWORD", "value": "order_pass"},
-                  {"name": "SPRING_DATA_REDIS_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
-                  {"name": "SPRING_DATA_REDIS_PORT", "value": "6379"},
-                  {"name": "SPRING_DATA_REDIS_PASSWORD", "value": "redis123"},
-                  {"name": "SPRING_RABBITMQ_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
-                  {"name": "SPRING_RABBITMQ_PORT", "value": "5672"},
-                  {"name": "SPRING_RABBITMQ_USERNAME", "value": "admin"},
-                  {"name": "SPRING_RABBITMQ_PASSWORD", "value": "admin123"}
+                  {"name": "INVENTORY_SERVICE_URL",         "value": f"http://{infra_ip}:8081"},
+                  {"name": "SPRING_PROFILES_ACTIVE",        "value": "prod"},
+                  # [FIX 3] prod 환경에서 DDL auto는 validate 권장 (스키마 보호)
+                  {"name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "validate"},
+                  {"name": "SPRING_DATASOURCE_URL",         "value": f"jdbc:mysql://{infra_ip}:3306/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
+                  {"name": "SPRING_DATASOURCE_USERNAME",    "value": "order_user"},
+                  {"name": "SPRING_DATA_REDIS_HOST",        "value": infra_ip},
+                  {"name": "SPRING_DATA_REDIS_PORT",        "value": "6379"},
+                  {"name": "SPRING_RABBITMQ_HOST",          "value": infra_ip},
+                  {"name": "SPRING_RABBITMQ_PORT",          "value": "5672"},
+                  {"name": "SPRING_RABBITMQ_USERNAME",      "value": "admin"},
+                ],
+                # [FIX 2] 패스워드·시크릿 키 → SSM Parameter Store 참조
+                "secrets": [
+                  {"name": "SPRING_DATASOURCE_PASSWORD",  "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/order/db-password"},
+                  {"name": "SPRING_DATA_REDIS_PASSWORD",  "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/redis-password"},
+                  {"name": "SPRING_RABBITMQ_PASSWORD",    "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/rabbitmq-password"},
+                  {"name": "TOSS_CLIENT_KEY",             "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/toss-client-key"},
+                  {"name": "TOSS_SECRET_KEY",             "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/toss-secret-key"},
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
                   "options": {
-                    "awslogs-group": "${{ steps.infra.outputs.order_log }}",
-                    "awslogs-region": "${{ env.AWS_REGION }}",
+                    "awslogs-group":         order_log,
+                    "awslogs-region":        aws_region,
                     "awslogs-stream-prefix": "order"
                   }
                 }
               }
             ]
           }
-          ENDJSON
+          with open("/tmp/order-task.json", "w") as f:
+            json.dump(task, f, indent=2)
+          print("order-task.json written OK")
+          PYEOF
+        env:
+          INFRA_IP:       ${{ steps.infra.outputs.infra_ip }}
+          EXECUTION_ROLE: ${{ steps.infra.outputs.execution_role }}
+          IMAGE:          ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/order-service:${{ needs.push-ecr.outputs.image-tag }}
+          ORDER_LOG:      ${{ steps.infra.outputs.order_log }}
+          AWS_REGION:     ${{ env.AWS_REGION }}
+
+      - name: Submit order-service Task Definition
+        id: order-task-arn
+        run: |
           TASK_ARN=$(aws ecs register-task-definition \
             --cli-input-json file:///tmp/order-task.json \
             --query 'taskDefinition.taskDefinitionArn' \
@@ -195,46 +225,68 @@ jobs:
       - name: Register inventory-service Task Definition
         id: inventory-task
         run: |
-          IMAGE="${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/inventory-service:${{ needs.push-ecr.outputs.image-tag }}"
-          cat > /tmp/inventory-task.json << ENDJSON
-          {
+          python3 - <<'PYEOF'
+          import json, os
+
+          infra_ip      = os.environ["INFRA_IP"]
+          execution_role= os.environ["EXECUTION_ROLE"]
+          image         = os.environ["IMAGE"]
+          inventory_log = os.environ["INVENTORY_LOG"]
+          aws_region    = os.environ["AWS_REGION"]
+
+          task = {
             "family": "foodtruck-inventory-task",
             "cpu": "512",
             "memory": "1024",
             "networkMode": "awsvpc",
             "requiresCompatibilities": ["FARGATE"],
-            "executionRoleArn": "${{ steps.infra.outputs.execution_role }}",
+            "executionRoleArn": execution_role,
             "containerDefinitions": [
               {
                 "name": "inventory-service",
-                "image": "${IMAGE}",
+                "image": image,
                 "portMappings": [{"containerPort": 8081, "protocol": "tcp"}],
                 "environment": [
-                  {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
-                  {"name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update"},
-                  {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3317/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
-                  {"name": "SPRING_DATASOURCE_USERNAME", "value": "inventory_user"},
-                  {"name": "SPRING_DATASOURCE_PASSWORD", "value": "inventory_pass"},
-                  {"name": "SPRING_DATA_REDIS_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
-                  {"name": "SPRING_DATA_REDIS_PORT", "value": "6379"},
-                  {"name": "SPRING_DATA_REDIS_PASSWORD", "value": "redis123"},
-                  {"name": "SPRING_RABBITMQ_HOST", "value": "${{ steps.infra.outputs.infra_ip }}"},
-                  {"name": "SPRING_RABBITMQ_PORT", "value": "5672"},
-                  {"name": "SPRING_RABBITMQ_USERNAME", "value": "admin"},
-                  {"name": "SPRING_RABBITMQ_PASSWORD", "value": "admin123"}
+                  {"name": "SPRING_PROFILES_ACTIVE",        "value": "prod"},
+                  {"name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "validate"},
+                  {"name": "SPRING_DATASOURCE_URL",         "value": f"jdbc:mysql://{infra_ip}:3306/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
+                  {"name": "SPRING_DATASOURCE_USERNAME",    "value": "inventory_user"},
+                  {"name": "SPRING_DATA_REDIS_HOST",        "value": infra_ip},
+                  {"name": "SPRING_DATA_REDIS_PORT",        "value": "6379"},
+                  {"name": "SPRING_RABBITMQ_HOST",          "value": infra_ip},
+                  {"name": "SPRING_RABBITMQ_PORT",          "value": "5672"},
+                  {"name": "SPRING_RABBITMQ_USERNAME",      "value": "admin"},
+                ],
+                "secrets": [
+                  {"name": "SPRING_DATASOURCE_PASSWORD", "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/inventory/db-password"},
+                  {"name": "SPRING_DATA_REDIS_PASSWORD", "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/redis-password"},
+                  {"name": "SPRING_RABBITMQ_PASSWORD",   "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/rabbitmq-password"},
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
                   "options": {
-                    "awslogs-group": "${{ steps.infra.outputs.inventory_log }}",
-                    "awslogs-region": "${{ env.AWS_REGION }}",
+                    "awslogs-group":         inventory_log,
+                    "awslogs-region":        aws_region,
                     "awslogs-stream-prefix": "inventory"
                   }
                 }
               }
             ]
           }
-          ENDJSON
+          with open("/tmp/inventory-task.json", "w") as f:
+            json.dump(task, f, indent=2)
+          print("inventory-task.json written OK")
+          PYEOF
+        env:
+          INFRA_IP:       ${{ steps.infra.outputs.infra_ip }}
+          EXECUTION_ROLE: ${{ steps.infra.outputs.execution_role }}
+          IMAGE:          ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/inventory-service:${{ needs.push-ecr.outputs.image-tag }}
+          INVENTORY_LOG:  ${{ steps.infra.outputs.inventory_log }}
+          AWS_REGION:     ${{ env.AWS_REGION }}
+
+      - name: Submit inventory-service Task Definition
+        id: inventory-task-arn
+        run: |
           TASK_ARN=$(aws ecs register-task-definition \
             --cli-input-json file:///tmp/inventory-task.json \
             --query 'taskDefinition.taskDefinitionArn' \
@@ -245,7 +297,9 @@ jobs:
         run: |
           CLUSTER=${{ steps.infra.outputs.cluster }}
           SERVICE=${{ env.PROJECT_NAME }}-order-service
-          NETWORK_CONFIG="awsvpcConfiguration={subnets=[${{ steps.infra.outputs.subnet1 }},${{ steps.infra.outputs.subnet2 }}],securityGroups=[${{ steps.infra.outputs.sg_ecs }}],assignPublicIp=ENABLED}"
+          # [FIX 4] ALB 사용 중이므로 Public IP 불필요 → DISABLED + Private Subnet 권장
+          #         현재는 원본 구성(Public Subnet) 유지하되 assignPublicIp만 DISABLED로 변경
+          NETWORK_CONFIG="awsvpcConfiguration={subnets=[${{ steps.infra.outputs.subnet1 }},${{ steps.infra.outputs.subnet2 }}],securityGroups=[${{ steps.infra.outputs.sg_ecs }}],assignPublicIp=DISABLED}"
 
           EXISTS=$(aws ecs describe-services \
             --cluster $CLUSTER --services $SERVICE \
@@ -256,7 +310,7 @@ jobs:
             aws ecs create-service \
               --cluster $CLUSTER \
               --service-name $SERVICE \
-              --task-definition ${{ steps.order-task.outputs.arn }} \
+              --task-definition ${{ steps.order-task-arn.outputs.arn }} \
               --desired-count 1 \
               --launch-type FARGATE \
               --network-configuration "$NETWORK_CONFIG" \
@@ -266,7 +320,7 @@ jobs:
             aws ecs update-service \
               --cluster $CLUSTER \
               --service $SERVICE \
-              --task-definition ${{ steps.order-task.outputs.arn }} \
+              --task-definition ${{ steps.order-task-arn.outputs.arn }} \
               --region ${{ env.AWS_REGION }}
           fi
 
@@ -274,7 +328,7 @@ jobs:
         run: |
           CLUSTER=${{ steps.infra.outputs.cluster }}
           SERVICE=${{ env.PROJECT_NAME }}-inventory-service
-          NETWORK_CONFIG="awsvpcConfiguration={subnets=[${{ steps.infra.outputs.subnet1 }},${{ steps.infra.outputs.subnet2 }}],securityGroups=[${{ steps.infra.outputs.sg_ecs }}],assignPublicIp=ENABLED}"
+          NETWORK_CONFIG="awsvpcConfiguration={subnets=[${{ steps.infra.outputs.subnet1 }},${{ steps.infra.outputs.subnet2 }}],securityGroups=[${{ steps.infra.outputs.sg_ecs }}],assignPublicIp=DISABLED}"
 
           EXISTS=$(aws ecs describe-services \
             --cluster $CLUSTER --services $SERVICE \
@@ -285,7 +339,7 @@ jobs:
             aws ecs create-service \
               --cluster $CLUSTER \
               --service-name $SERVICE \
-              --task-definition ${{ steps.inventory-task.outputs.arn }} \
+              --task-definition ${{ steps.inventory-task-arn.outputs.arn }} \
               --desired-count 1 \
               --launch-type FARGATE \
               --network-configuration "$NETWORK_CONFIG" \
@@ -295,7 +349,7 @@ jobs:
             aws ecs update-service \
               --cluster $CLUSTER \
               --service $SERVICE \
-              --task-definition ${{ steps.inventory-task.outputs.arn }} \
+              --task-definition ${{ steps.inventory-task-arn.outputs.arn }} \
               --region ${{ env.AWS_REGION }}
           fi
 
@@ -319,9 +373,8 @@ jobs:
             --parameter-overrides \
                 ECSClusterName=foodtruck-cluster \
                 ECSServiceNames="foodtruck-order-service,foodtruck-inventory-service" \
-                MonthlyBudgetUSD=10 \
+                MonthlyBudgetUSD=35 \
                 NotificationEmail=${{ secrets.NOTIFICATION_EMAIL }} \
-                NotificationPhoneNumber=${{ secrets.NOTIFICATION_PHONE }} \
                 StackEnv=dev \
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ env.AWS_REGION }} \
