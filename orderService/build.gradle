@@ -30,6 +30,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     //healthCehck
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
 }
 
 // Q클래스 생성 경로 설정(QueryDSL용)

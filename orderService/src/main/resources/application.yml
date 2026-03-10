@@ -41,3 +41,7 @@ spring:
 services:
   inventory:
     url: ${INVENTORY_SERVICE_URL:http://localhost:8081}
+
+toss:
+  client-key: ${TOSS_CLIENT_KEY}
+  secret-key: ${TOSS_SECRET_KEY}

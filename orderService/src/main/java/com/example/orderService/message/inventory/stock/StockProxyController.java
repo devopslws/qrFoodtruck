@@ -1,4 +1,4 @@
-package com.example.orderService.common;
+package com.example.orderService.message.inventory.stock;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ import java.util.Map;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/products")
-public class ProductApiController {
+public class StockProxyController {
 
     private final RestClient inventoryRestClient;
 

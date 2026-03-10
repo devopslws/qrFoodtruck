@@ -1,4 +1,4 @@
-package com.example.orderService.redis;
+package com.example.orderService.common.redis;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.example.orderService.redis.RedisKeyConstants.*;
+import static com.example.orderService.common.redis.RedisKeyConstants.*;
 
 /**
  * order-service Redis Read 전담 컴포넌트

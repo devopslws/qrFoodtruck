@@ -1,4 +1,4 @@
-package com.example.orderService.redis;
+package com.example.orderService.common.redis;
 
 /**
  * Redis 키 상수 (order-service)

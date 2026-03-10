@@ -368,6 +368,7 @@
           transform: translateX(-50%) translateY(0);
         }
     </style>
+    <script src="https://js.tosspayments.com/v2/standard"></script>
 </head>
 <body>
 
@@ -479,9 +480,38 @@
       badge.textContent = 'SSE 연결됨';
       badge.classList.add('active');
 
-      // 실제: new EventSource('/sse/connect?uuid=' + uuid)
-      // 여기서는 시뮬레이션
-      showToast('🔗 실시간 연결되었습니다');
+      // SSE 연결 시작
+      sseSource = new EventSource('/sse/connect');
+
+      sseSource.addEventListener('CONNECTED', () => {
+        showToast('🔗 실시간 연결되었습니다');
+      });
+
+      sseSource.addEventListener('COOKING_DONE', (e) => {
+        const { orderNo } = JSON.parse(e.data);
+        updateOrderStatus(orderNo, 'READY');
+        showToast(`🍜 ${orderNo} 조리 완료! 카운터에서 수령하세요.`);
+      });
+
+      sseSource.addEventListener('STOCK_UPDATED', (e) => {
+        const updated = JSON.parse(e.data);
+        // 재고 갱신 반영
+        updated.forEach(({ id, stock }) => {
+          const item = MENU_DATA.find(m => m.id === id);
+          if (item) item.stock = stock;
+        });
+        renderMenu();
+      });
+
+      sseSource.addEventListener('SESSION_END', () => {
+        deactivateSession();
+      });
+
+      sseSource.onerror = () => {
+        deactivateSession();
+        showToast('⚠ 연결이 끊어졌습니다.');
+      };
+
       clearIdleTimer();
     }
 
@@ -558,7 +588,7 @@
             ${sold
               ? `<button class="btn-sold">품절</button>`
               : maxReached
-                ? `<button class="btn-sold" disabled>max주문</button>`
+                ? `<button class="btn-sold" disabled>담기 불가</button>`
                 : `<button class="btn-add" onclick="addToCart(${item.id})">담기</button>`
             }
           </div>`;
@@ -574,8 +604,6 @@
 
       // 재고 초과 방어
       const cartQty = cart[productId] ? cart[productId].qty : 0;
-      console.log(cartQty)
-      console.log(item)
       if (cartQty >= item.stock) {
         showToast('⚠ 재고가 부족합니다.');
         return;
@@ -664,21 +692,47 @@
     // ──────────────────────────────────────────────
     // 결제
     // ──────────────────────────────────────────────
-    function handlePay() {
+    async function handlePay() {
       if (Object.keys(cart).length === 0) return;
-      // 실제: Toss SDK 호출 → 서버 /order/pay POST
 
-      const orderNo = 'A' + String(Math.floor(Math.random() * 900) + 100);
-      const desc = Object.values(cart).map(i => `${i.name} ${i.qty}개`).join(', ');
+      const items = Object.entries(cart).map(([id, v]) => ({
+        productId: Number(id),
+        productName: v.name,
+        quantity: v.qty,
+        unitPrice: v.price
+      }));
+      const totalPrice = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+      const orderName = items.length === 1
+        ? items[0].productName
+        : `${items[0].productName} 외 ${items.length - 1}건`;
 
-      // 결제 성공 시뮬레이션
-      showToast('💳 결제가 완료되었습니다!');
-      cart = {};
-      renderCart();
-      clearIdleTimer();
+      // 주문 생성 요청
+      let readyData;
+      try {
+        const res = await fetch('/api/payment/ready', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderName, totalPrice, items })
+        });
+        if (!res.ok) throw new Error('주문 생성 실패');
+        readyData = await res.json();
+      } catch (e) {
+        showToast('⚠ 주문 처리 중 오류가 발생했습니다.');
+        return;
+      }
 
-      // 주문 추가 (ACCEPTED → 7초 후 COOKING → 7초 후 READY)
-      addOrder(orderNo, desc);
+      // Toss 결제창 호출
+      const tossPayments = TossPayments(readyData.clientKey);
+      const payment = tossPayments.payment({ customerKey: 'ANONYMOUS' });
+
+      await payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: readyData.amount },
+        orderId: readyData.orderNo,
+        orderName: readyData.orderName,
+        successUrl: window.location.origin + '/payment/success',
+        failUrl: window.location.origin + '/payment/fail',
+      });
     }
 
     function addOrder(orderNo, desc) {

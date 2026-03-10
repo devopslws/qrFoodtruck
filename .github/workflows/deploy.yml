@@ -156,6 +156,8 @@ jobs:
                 "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
                 "environment": [
                   {"name": "INVENTORY_SERVICE_URL", "value": "http://${{ steps.infra.outputs.infra_ip }}:8081"}
+                  {"name": "TOSS_CLIENT_KEY", "value": "${{ secrets.TOSS_CLIENT_KEY }}"},
+                  {"name": "TOSS_SECRET_KEY", "value": "${{ secrets.TOSS_SECRET_KEY }}"},
                   {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
                   {"name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update"},
                   {"name": "SPRING_DATASOURCE_URL", "value": "jdbc:mysql://${{ steps.infra.outputs.infra_ip }}:3316/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
