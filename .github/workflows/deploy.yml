@@ -353,20 +353,5 @@ jobs:
             --services ${{ env.PROJECT_NAME }}-inventory-service \
             --region ${{ env.AWS_REGION }}
 
-      - name: Deploy Budget Guard stack
-        run: |
-          aws cloudformation deploy \
-            --template-file cloudformation/06_budget.yml \
-            --stack-name foodtruck-budget \
-            --parameter-overrides \
-                ECSClusterName=foodtruck-cluster \
-                ECSServiceNames="foodtruck-order-service,foodtruck-inventory-service" \
-                MonthlyBudgetUSD=10 \
-                NotificationEmail=${{ secrets.NOTIFICATION_EMAIL }} \
-                StackEnv=dev \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --region ${{ env.AWS_REGION }} \
-            --no-fail-on-empty-changeset
-
       - name: Done
         run: echo "Deploy complete - image tag ${{ needs.push-ecr.outputs.image-tag }}"
