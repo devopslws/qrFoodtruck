@@ -207,7 +207,7 @@ jobs:
                 "image": image,
                 "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
                 "environment": [
-                  {"name": "INVENTORY_SERVICE_URL",         "value": f"http://{alb_dns}"},
+                  {"name": "INVENTORY_SERVICE_URL",         "value": f"http://inventory-service.foodtruck:8081"},
                   {"name": "TOSS_CLIENT_KEY",               "value": toss_client},
                   {"name": "TOSS_SECRET_KEY",               "value": toss_secret},
                   {"name": "SPRING_PROFILES_ACTIVE",        "value": "prod"},
