@@ -156,6 +156,7 @@ jobs:
           image         = os.environ["IMAGE"]
           order_log     = os.environ["ORDER_LOG"]
           aws_region    = os.environ["AWS_REGION"]
+          account_id    = os.environ["ACCOUNT_ID"]
 
           # [FIX 2] 민감 정보는 SSM Parameter Store에서 런타임에 주입 (secrets 블록)
           task = {
@@ -184,12 +185,13 @@ jobs:
                   {"name": "SPRING_RABBITMQ_USERNAME",      "value": "admin"},
                 ],
                 # [FIX 2] 패스워드·시크릿 키 → SSM Parameter Store 참조
+                # ARN 형식: arn:aws:ssm:{region}:{account_id}:parameter/{name}
                 "secrets": [
-                  {"name": "SPRING_DATASOURCE_PASSWORD",  "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/order/db-password"},
-                  {"name": "SPRING_DATA_REDIS_PASSWORD",  "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/redis-password"},
-                  {"name": "SPRING_RABBITMQ_PASSWORD",    "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/rabbitmq-password"},
-                  {"name": "TOSS_CLIENT_KEY",             "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/toss-client-key"},
-                  {"name": "TOSS_SECRET_KEY",             "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/toss-secret-key"},
+                  {"name": "SPRING_DATASOURCE_PASSWORD",  "valueFrom": f"arn:aws:ssm:{aws_region}:{account_id}:parameter/foodtruck/order/db-password"},
+                  {"name": "SPRING_DATA_REDIS_PASSWORD",  "valueFrom": f"arn:aws:ssm:{aws_region}:{account_id}:parameter/foodtruck/redis-password"},
+                  {"name": "SPRING_RABBITMQ_PASSWORD",    "valueFrom": f"arn:aws:ssm:{aws_region}:{account_id}:parameter/foodtruck/rabbitmq-password"},
+                  {"name": "TOSS_CLIENT_KEY",             "valueFrom": f"arn:aws:ssm:{aws_region}:{account_id}:parameter/foodtruck/toss-client-key"},
+                  {"name": "TOSS_SECRET_KEY",             "valueFrom": f"arn:aws:ssm:{aws_region}:{account_id}:parameter/foodtruck/toss-secret-key"},
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
@@ -212,6 +214,7 @@ jobs:
           IMAGE:          ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/order-service:${{ needs.push-ecr.outputs.image-tag }}
           ORDER_LOG:      ${{ steps.infra.outputs.order_log }}
           AWS_REGION:     ${{ env.AWS_REGION }}
+          ACCOUNT_ID:     ${{ secrets.AWS_ACCOUNT_ID }}
 
       - name: Submit order-service Task Definition
         id: order-task-arn
@@ -233,6 +236,7 @@ jobs:
           image         = os.environ["IMAGE"]
           inventory_log = os.environ["INVENTORY_LOG"]
           aws_region    = os.environ["AWS_REGION"]
+          account_id    = os.environ["ACCOUNT_ID"]
 
           task = {
             "family": "foodtruck-inventory-task",
@@ -258,9 +262,9 @@ jobs:
                   {"name": "SPRING_RABBITMQ_USERNAME",      "value": "admin"},
                 ],
                 "secrets": [
-                  {"name": "SPRING_DATASOURCE_PASSWORD", "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/inventory/db-password"},
-                  {"name": "SPRING_DATA_REDIS_PASSWORD", "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/redis-password"},
-                  {"name": "SPRING_RABBITMQ_PASSWORD",   "valueFrom": f"arn:aws:ssm:{aws_region}::parameter/foodtruck/rabbitmq-password"},
+                  {"name": "SPRING_DATASOURCE_PASSWORD", "valueFrom": f"arn:aws:ssm:{aws_region}:{account_id}:parameter/foodtruck/inventory/db-password"},
+                  {"name": "SPRING_DATA_REDIS_PASSWORD", "valueFrom": f"arn:aws:ssm:{aws_region}:{account_id}:parameter/foodtruck/redis-password"},
+                  {"name": "SPRING_RABBITMQ_PASSWORD",   "valueFrom": f"arn:aws:ssm:{aws_region}:{account_id}:parameter/foodtruck/rabbitmq-password"},
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
@@ -283,6 +287,7 @@ jobs:
           IMAGE:          ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/inventory-service:${{ needs.push-ecr.outputs.image-tag }}
           INVENTORY_LOG:  ${{ steps.infra.outputs.inventory_log }}
           AWS_REGION:     ${{ env.AWS_REGION }}
+          ACCOUNT_ID:     ${{ secrets.AWS_ACCOUNT_ID }}
 
       - name: Submit inventory-service Task Definition
         id: inventory-task-arn
