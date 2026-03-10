@@ -171,7 +171,7 @@ jobs:
                   {"name": "TOSS_CLIENT_KEY",               "value": toss_client},
                   {"name": "TOSS_SECRET_KEY",               "value": toss_secret},
                   {"name": "SPRING_PROFILES_ACTIVE",        "value": "prod"},
-                  {"name": "SPRING_DATASOURCE_URL",         "value": f"jdbc:mysql://{infra_ip}:3306/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
+                  {"name": "SPRING_DATASOURCE_URL",         "value": f"jdbc:mysql://{infra_ip}:3316/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
                   {"name": "SPRING_DATASOURCE_USERNAME",    "value": "order_user"},
                   {"name": "SPRING_DATASOURCE_PASSWORD",    "value": "order_pass"},
                   {"name": "SPRING_DATA_REDIS_HOST",        "value": infra_ip},
@@ -241,7 +241,7 @@ jobs:
                 "portMappings": [{"containerPort": 8081, "protocol": "tcp"}],
                 "environment": [
                   {"name": "SPRING_PROFILES_ACTIVE",        "value": "prod"},
-                  {"name": "SPRING_DATASOURCE_URL",         "value": f"jdbc:mysql://{infra_ip}:3306/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
+                  {"name": "SPRING_DATASOURCE_URL",         "value": f"jdbc:mysql://{infra_ip}:3317/inventorydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8"},
                   {"name": "SPRING_DATASOURCE_USERNAME",    "value": "inventory_user"},
                   {"name": "SPRING_DATASOURCE_PASSWORD",    "value": "inventory_pass"},
                   {"name": "SPRING_DATA_REDIS_HOST",        "value": infra_ip},
