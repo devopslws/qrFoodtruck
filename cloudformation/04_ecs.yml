@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: FoodTruck - ECS Cluster + ALB + Target Groups (no Task/Service)
+Description: FoodTruck - ECS Cluster + ALB + Target Groups + Cloud Map
 
 Parameters:
   ProjectName:
@@ -46,6 +46,27 @@ Resources:
     Properties:
       LogGroupName: !Sub /ecs/${ProjectName}/inventory-service
       RetentionInDays: 7
+
+  # Cloud Map - internal service discovery
+  # inventory-service.foodtruck.local
+  ServiceDiscoveryNamespace:
+    Type: AWS::ServiceDiscovery::PrivateDnsNamespace
+    Properties:
+      Name: !Sub ${ProjectName}.local
+      Vpc:
+        Fn::ImportValue: !Sub ${ProjectName}-VpcId
+
+  InventoryServiceDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: inventory-service
+      NamespaceId: !Ref ServiceDiscoveryNamespace
+      DnsConfig:
+        DnsRecords:
+          - Type: A
+            TTL: 10
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
 
   Alb:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -97,7 +118,6 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref OrderTargetGroup
 
-  # /api/inventory/* 경로는 inventory-service로 라우팅
   InventoryListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
@@ -107,6 +127,32 @@ Resources:
         - Field: path-pattern
           Values:
             - /api/inventory/*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref InventoryTargetGroup
+
+  StockListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref AlbListener
+      Priority: 20
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /api/stock/*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref InventoryTargetGroup
+
+  AdminStockListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref AlbListener
+      Priority: 30
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /api/admin/stock/*
       Actions:
         - Type: forward
           TargetGroupArn: !Ref InventoryTargetGroup
@@ -161,3 +207,13 @@ Outputs:
     Value: !Ref TaskMemory
     Export:
       Name: !Sub ${ProjectName}-TaskMemory
+
+  InventoryServiceDiscoveryArn:
+    Value: !GetAtt InventoryServiceDiscovery.Arn
+    Export:
+      Name: !Sub ${ProjectName}-InventoryServiceDiscoveryArn
+
+  ServiceDiscoveryNamespaceId:
+    Value: !Ref ServiceDiscoveryNamespace
+    Export:
+      Name: !Sub ${ProjectName}-ServiceDiscoveryNamespaceId

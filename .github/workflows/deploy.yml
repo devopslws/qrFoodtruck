@@ -145,6 +145,7 @@ jobs:
             --output text --region ${{ env.AWS_REGION }})
           echo "infra_public_ip=${PUBLIC_IP}" >> $GITHUB_OUTPUT
           echo "alb_dns=$(get foodtruck-AlbDnsName)" >> $GITHUB_OUTPUT
+          echo "inventory_sd_arn=$(get foodtruck-InventoryServiceDiscoveryArn)" >> $GITHUB_OUTPUT
 
       - name: Setup EC2 infra (docker-compose + init SQL)
         run: |
@@ -207,7 +208,7 @@ jobs:
                 "image": image,
                 "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
                 "environment": [
-                  {"name": "INVENTORY_SERVICE_URL",         "value": f"http://inventory-service.foodtruck:8081"},
+                  {"name": "INVENTORY_SERVICE_URL",         "value": "http://inventory-service.foodtruck.local:8081"},
                   {"name": "TOSS_CLIENT_KEY",               "value": toss_client},
                   {"name": "TOSS_SECRET_KEY",               "value": toss_secret},
                   {"name": "SPRING_PROFILES_ACTIVE",        "value": "prod"},
@@ -373,12 +374,14 @@ jobs:
               --launch-type FARGATE \
               --network-configuration "$NETWORK_CONFIG" \
               --load-balancers "targetGroupArn=${{ steps.infra.outputs.inventory_tg }},containerName=inventory-service,containerPort=8081" \
+              --service-registries "registryArn=${{ steps.infra.outputs.inventory_sd_arn }}" \
               --region ${{ env.AWS_REGION }}
           else
             aws ecs update-service \
               --cluster $CLUSTER \
               --service $SERVICE \
               --task-definition ${{ steps.inventory-task-arn.outputs.arn }} \
+              --service-registries "registryArn=${{ steps.infra.outputs.inventory_sd_arn }}" \
               --region ${{ env.AWS_REGION }}
           fi
 
