@@ -331,12 +331,18 @@ jobs:
           SERVICE=${{ env.PROJECT_NAME }}-order-service
           NETWORK_CONFIG="awsvpcConfiguration={subnets=[${{ steps.infra.outputs.subnet1 }},${{ steps.infra.outputs.subnet2 }}],securityGroups=[${{ steps.infra.outputs.sg_ecs }}],assignPublicIp=DISABLED}"
 
-          EXISTS=$(aws ecs describe-services \
+          STATUS=$(aws ecs describe-services \
             --cluster $CLUSTER --services $SERVICE \
-            --query 'services[?status==`ACTIVE`].serviceName' \
-            --output text --region ${{ env.AWS_REGION }})
+            --query 'services[0].status' \
+            --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "NONE")
 
-          if [ -z "$EXISTS" ]; then
+          if [ "$STATUS" = "ACTIVE" ]; then
+            aws ecs update-service \
+              --cluster $CLUSTER \
+              --service $SERVICE \
+              --task-definition ${{ steps.order-task-arn.outputs.arn }} \
+              --region ${{ env.AWS_REGION }}
+          else
             aws ecs create-service \
               --cluster $CLUSTER \
               --service-name $SERVICE \
@@ -345,12 +351,6 @@ jobs:
               --launch-type FARGATE \
               --network-configuration "$NETWORK_CONFIG" \
               --load-balancers "targetGroupArn=${{ steps.infra.outputs.order_tg }},containerName=order-service,containerPort=8080" \
-              --region ${{ env.AWS_REGION }}
-          else
-            aws ecs update-service \
-              --cluster $CLUSTER \
-              --service $SERVICE \
-              --task-definition ${{ steps.order-task-arn.outputs.arn }} \
               --region ${{ env.AWS_REGION }}
           fi
 
