@@ -1,4 +1,4 @@
-package com.example.inventoryService.product.dto;
+package com.example.inventoryService.stock.dto;
 
 import java.util.List;
 

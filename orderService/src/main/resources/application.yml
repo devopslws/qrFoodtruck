@@ -45,3 +45,14 @@ services:
 toss:
   client-key: ${TOSS_CLIENT_KEY}
   secret-key: ${TOSS_SECRET_KEY}
+
+logging:
+  level:
+    # AsyncRequestTimeoutException: SSE 타임아웃은 정상 종료 케이스
+    org.springframework.web.context.request.async: WARN
+    # "Ignoring exception, response committed already" 억제
+    org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitterReturnValueHandler: WARN
+    # DefaultHandlerExceptionResolver WARN 억제
+    org.springframework.web.servlet.mvc.method.support.ExceptionHandlerMethodResolver: WARN
+
+

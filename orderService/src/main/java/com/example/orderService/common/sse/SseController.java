@@ -1,9 +1,6 @@
 package com.example.orderService.common.sse;
 
 import com.example.orderService.common.redis.SessionRedisManager;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -14,8 +11,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /**
  * SSE 연결 엔드포인트
  *
- * GET  /sse/connect  → SSE 연결 시작 (첫 상품 담기 시 호출)
- * POST /sse/close    → SSE 연결 종료 (클라이언트 요청 시)
+ * GET  /sse/connect?uuid=  — SSE 연결 (첫 상품 담기 or 복귀 시)
+ * POST /sse/close?uuid=    — SSE 명시적 종료
  */
 @Slf4j
 @RestController
@@ -23,54 +20,33 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequestMapping("/sse")
 public class SseController {
 
-    private static final String SESSION_COOKIE = "SESSION_ID";
-
     private final SseEmitterManager sseEmitterManager;
     private final SessionRedisManager sessionRedisManager;
 
     /**
-     * GET /sse/connect
-     * 첫 상품 장바구니 담기 시 호출
-     * 쿠키의 SESSION_ID로 uuid 식별
+     * GET /sse/connect?uuid=...
+     * 쿠키 없음. uuid는 클라이언트 sessionStorage에서 전달.
+     * - 첫 상품 담기 시
+     * - Toss 리다이렉트 복귀 후 진행중 주문 있을 때
      */
     @GetMapping(value = "/connect", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter connect(HttpServletRequest request, HttpServletResponse response) {
-        String uuid = resolveUuid(request);
-
-        // 세션 없으면 신규 발급
-        if (uuid == null || !sessionRedisManager.exists(uuid)) {
-            uuid = sessionRedisManager.createSession();
-            Cookie cookie = new Cookie("SESSION_ID", uuid);
-            cookie.setHttpOnly(true);
-            cookie.setPath("/");
-            cookie.setMaxAge(-1);
-            response.addCookie(cookie);
-            log.info("[SSE] 신규 세션 발급 후 연결: {}", uuid);
+    public SseEmitter connect(@RequestParam String uuid) {
+        if (!sessionRedisManager.exists(uuid)) {
+            // 세션 만료 후 재연결 시도 (정상 케이스 — 클라이언트가 재연결 로직 실행 중)
+            // uuid를 재등록하고 연결 허용 (heartbeat가 계속 살아있으면 TTL 갱신됨)
+            log.debug("[SSE] 만료된 uuid 재연결 — uuid 재등록 후 허용: {}", uuid);
+            sessionRedisManager.registerUuid(uuid);
         }
-
         return sseEmitterManager.connect(uuid);
     }
 
     /**
-     * POST /sse/close
-     * 클라이언트가 명시적으로 종료 요청 시 (beforeunload 등)
+     * POST /sse/close?uuid=...
+     * idle 타임아웃, 결제 실패 등 클라이언트가 명시적으로 종료
      */
     @PostMapping("/close")
-    public ResponseEntity<Void> close(HttpServletRequest request) {
-        String uuid = resolveUuid(request);
-        if (uuid != null) {
-            sseEmitterManager.close(uuid);
-        }
+    public ResponseEntity<Void> close(@RequestParam String uuid) {
+        sseEmitterManager.close(uuid);
         return ResponseEntity.ok().build();
-    }
-
-    private String resolveUuid(HttpServletRequest request) {
-        if (request.getCookies() == null) return null;
-        for (Cookie cookie : request.getCookies()) {
-            if (SESSION_COOKIE.equals(cookie.getName())) {
-                return cookie.getValue();
-            }
-        }
-        return null;
     }
 }

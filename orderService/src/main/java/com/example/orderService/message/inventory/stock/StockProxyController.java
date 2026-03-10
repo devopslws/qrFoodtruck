@@ -30,7 +30,7 @@ public class StockProxyController {
         log.info("[Menu] inventory-service 메뉴 조회 요청");
 
         List<Map<String, Object>> products = inventoryRestClient.get()
-                .uri("/api/products")
+                .uri("/api/stock/menu")
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
 

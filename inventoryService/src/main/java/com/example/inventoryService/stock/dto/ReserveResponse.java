@@ -1,3 +1,3 @@
-package com.example.inventoryService.product.dto;
+package com.example.inventoryService.stock.dto;
 
 public record ReserveResponse(boolean success, Long failedProductId) {}

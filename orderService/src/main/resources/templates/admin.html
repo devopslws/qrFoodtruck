@@ -134,7 +134,7 @@
 
         /* 고객 세션 패널 */
         .panel-sessions {
-          width: 148px;
+          width: 444px;
           flex-shrink: 0;
           background: var(--surface);
           border-right: 1px solid var(--border);
@@ -175,6 +175,38 @@
           color: var(--muted);
           margin-top: 3px;
         }
+        .session-card-orders {
+          margin-top: 7px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .session-order-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 0.65rem;
+          color: var(--text);
+          gap: 6px;
+        }
+        .session-order-no {
+          font-family: 'Space Mono', monospace;
+          color: var(--accent2);
+          font-size: 0.62rem;
+          flex: 1;
+        }
+        .btn-receive {
+          font-size: 0.62rem;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 4px;
+          border: 1px solid var(--green);
+          background: var(--green-bg);
+          color: var(--green);
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .btn-receive:hover { background: var(--green); color: #fff; }
         .session-status-dot {
           width: 6px; height: 6px;
           border-radius: 50%;
@@ -480,6 +512,105 @@
           margin-top: 1px;
         }
         .log-refund { color: var(--red); }
+
+        /* ── CI/CD Pipeline ── */
+        .cicd-pipeline {
+          padding: 0 28px 28px;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+        .pipe-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          justify-content: center;
+          margin: 8px 0;
+        }
+        .pipe-node {
+          text-align: center;
+          padding: 14px 24px;
+          border-radius: 10px;
+          min-width: 160px;
+        }
+        .pipe-node.trigger { background: var(--yellow-bg); border: 1.5px solid var(--accent2); }
+        .pipe-node.result  { background: var(--green-bg);  border: 1.5px solid var(--green); }
+        .pipe-icon { font-size: 22px; margin-bottom: 4px; }
+        .pipe-label { font-weight: 700; font-size: 13px; }
+        .pipe-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+        .pipe-arrow { font-size: 20px; color: var(--muted); }
+        .pipe-divider {
+          text-align: center;
+          font-size: 11px;
+          color: var(--muted);
+          padding: 6px 0;
+          font-family: 'Space Mono', monospace;
+        }
+        .pipe-job {
+          border: 1.5px solid var(--border);
+          border-radius: 10px;
+          background: var(--surface);
+          margin: 4px 0;
+          overflow: hidden;
+        }
+        .pipe-job-title {
+          background: var(--surface2);
+          padding: 10px 16px;
+          font-weight: 700;
+          font-size: 13px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          border-bottom: 1px solid var(--border);
+        }
+        .job-badge {
+          background: var(--text);
+          color: #fff;
+          font-size: 10px;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-family: 'Space Mono', monospace;
+        }
+        .pipe-steps {
+          padding: 12px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+        }
+        .pipe-step {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 12px;
+        }
+        .pipe-step.indent { padding-left: 28px; }
+        .step-dot {
+          width: 8px; height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .step-dot.green  { background: var(--green); }
+        .step-dot.blue   { background: var(--blue); }
+        .step-dot.orange { background: var(--accent); }
+        .step-dot.dim    { background: var(--border2); }
+        .pipe-step code {
+          font-family: 'Space Mono', monospace;
+          background: var(--surface2);
+          padding: 1px 6px;
+          border-radius: 3px;
+          font-size: 11px;
+        }
+        .pipe-step .dim { color: var(--muted); }
+        .pipe-note {
+          margin: 0 16px 12px;
+          padding: 8px 12px;
+          background: var(--blue-bg);
+          border-left: 3px solid var(--blue);
+          border-radius: 0 6px 6px 0;
+          font-size: 11.5px;
+          line-height: 1.6;
+          color: var(--text);
+        }
 
         /* ── Page 2: 구조해설 ── */
         #page-docs {
@@ -798,18 +929,6 @@
                     </tr>
                     </thead>
                     <tbody id="mfg-tbody">
-                    <tr>
-                        <td class="mfg-order-no">A01</td>
-                        <td class="mfg-desc">짜장면 3개</td>
-                        <td><span class="chip chip-paid">결제 완료</span></td>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <td class="mfg-order-no">B08</td>
-                        <td class="mfg-desc">짬뽕 2개</td>
-                        <td><span class="chip chip-ready">조리 완료</span></td>
-                        <td><button class="deliver-btn" onclick="deliver('B08', this)">전달완료</button></td>
-                    </tr>
                     </tbody>
                 </table>
             </div>
@@ -847,53 +966,8 @@
 
             <!-- 로그 리스트 -->
             <div class="log-list" id="log-list">
-                <div class="log-item">
-                    <span class="log-time">14:23</span>
-                    <div class="log-body">
-                        <div class="log-orderno">B08</div>
-                        <div class="log-desc">짬뽕 2개</div>
-                    </div>
-                    <span class="log-amount">₩20,000</span>
-                </div>
-                <div class="log-item">
-                    <span class="log-time">14:11</span>
-                    <div class="log-body">
-                        <div class="log-orderno">A01</div>
-                        <div class="log-desc">짜장면 3개</div>
-                    </div>
-                    <span class="log-amount">₩24,000</span>
-                </div>
-                <div class="log-item">
-                    <span class="log-time">13:55</span>
-                    <div class="log-body">
-                        <div class="log-orderno">K22</div>
-                        <div class="log-desc">탕수육 1개</div>
-                    </div>
-                    <span class="log-amount log-refund">↩ 환불</span>
-                </div>
-                <div class="log-item">
-                    <span class="log-time">13:40</span>
-                    <div class="log-body">
-                        <div class="log-orderno">K22</div>
-                        <div class="log-desc">탕수육 1개</div>
-                    </div>
-                    <span class="log-amount">₩22,000</span>
-                </div>
-                <div class="log-item">
-                    <span class="log-time">13:18</span>
-                    <div class="log-body">
-                        <div class="log-orderno">J15</div>
-                        <div class="log-desc">짜장면 2개 · 짬뽕 1개</div>
-                    </div>
-                    <span class="log-amount">₩26,000</span>
-                </div>
-                <div class="log-item">
-                    <span class="log-time">12:50</span>
-                    <div class="log-body">
-                        <div class="log-orderno">H09</div>
-                        <div class="log-desc">짜장면 2개</div>
-                    </div>
-                    <span class="log-amount">₩16,000</span>
+                <div class="log-empty" id="log-empty" style="padding:20px 12px;color:var(--muted);font-size:0.78rem;text-align:center">
+                    아직 주문 이력이 없습니다.
                 </div>
             </div>
         </div>
@@ -908,7 +982,8 @@
             <div class="docs-tab active" onclick="switchDoc('arch', this)">2-1. 시스템 아키텍처</div>
             <div class="docs-tab" onclick="switchDoc('schema', this)">2-2. 데이터 스키마</div>
             <div class="docs-tab" onclick="switchDoc('deploy', this)">2-3. 배포환경 구성</div>
-            <div class="docs-tab" onclick="switchDoc('progress', this)">2-4. 진행 현황</div>
+            <div class="docs-tab" onclick="switchDoc('cicd', this)">2-4. CI/CD 파이프라인</div>
+            <div class="docs-tab" onclick="switchDoc('progress', this)">2-5. 진행 현황</div>
         </div>
 
         <!-- 2-1. 아키텍처 -->
@@ -1000,31 +1075,227 @@
         <!-- 2-3. 배포환경 -->
         <div class="doc-page" id="doc-deploy">
             <div class="doc-section">
-                <div class="doc-h2">배포 전략</div>
-                <div class="doc-desc">EC2 t3.micro 1대에 Docker Compose로 전체 서비스를 올린다. 관리형 서비스(RDS, ElastiCache) 미사용 — MySQL·Redis도 컨테이너로 운영해 비용 최소화.</div>
+                <div class="doc-h2">AWS 인프라 구성</div>
+                <div class="doc-desc">CloudFormation 4개 스택으로 인프라를 레이어별로 분리 관리. 앱 서버(ECS Fargate)와 인프라 서버(EC2)를 분리해 관심사를 명확히 구분.</div>
                 <div class="arch-diagram">
-                    <span class="hl">EC2 t3.micro</span>  <span class="dim">(영업시간 EventBridge 스케줄 온/오프)</span>
-                    └── docker-compose up
-                    ├── <span class="hl2">order-service      :8080</span>
-                    ├── <span class="hl2">inventory-service  :8081</span>
-                    ├── <span class="hl">order-db      MySQL :3316</span>   <span class="dim">← init-sql/order 자동 초기화</span>
-                    ├── <span class="hl">inventory-db  MySQL :3317</span>   <span class="dim">← init-sql/inventory + 시드 데이터</span>
-                    ├── <span class="hl3">redis              :6379</span>   <span class="dim">← 재고 캐시 · 세션 UUID</span>
-                    └── <span class="hl3">rabbitmq           :5672</span>   <span class="dim">← 제조지시 · 재고변동 이벤트</span>
+                    <span class="hl">인터넷</span>
+                    └── <span class="hl2">ALB (Application Load Balancer)</span>  <span class="dim">← 80포트, 경로 기반 라우팅</span>
+                    ├── <span class="hl2">ECS Fargate — order-service      :8080</span>  <span class="dim">← 주문·결제</span>
+                    └── <span class="hl2">ECS Fargate — inventory-service  :8081</span>  <span class="dim">← 재고·제조</span>
 
-                    <span class="dim">향후: CloudFormation IaC 관리 예정
-      트래픽 증가 시 ECS Fargate 마이그레이션 고려</span>
+                    <span class="hl">EC2 t3.micro</span>  <span class="dim">(인프라 전용 — docker-compose)</span>
+                    ├── <span class="hl">order-db      MySQL :3316</span>
+                    ├── <span class="hl">inventory-db  MySQL :3317</span>
+                    ├── <span class="hl3">Redis              :6379</span>   <span class="dim">← 재고 캐시 · 세션 UUID</span>
+                    └── <span class="hl3">RabbitMQ           :5672</span>   <span class="dim">← 서비스간 메시지 브로커</span>
                 </div>
+            </div>
+            <div class="doc-section">
+                <div class="doc-h2">CloudFormation 스택 구성</div>
+                <table class="schema-table">
+                    <thead><tr><th>스택</th><th>담당 리소스</th><th>특이사항</th></tr></thead>
+                    <tbody>
+                    <tr><td>01_vpc</td><td>VPC, Subnet×4, IGW, SG×3</td><td>기반 네트워크. 거의 변경 없음</td></tr>
+                    <tr><td>02_infra</td><td>EC2 + EIP + IAM Role</td><td>UserData로 docker-compose 자동 기동</td></tr>
+                    <tr><td>03_ecr</td><td>ECR 레포지토리 ×2</td><td>이미지 10개 초과 시 자동 삭제</td></tr>
+                    <tr><td>04_ecs</td><td>ECS Cluster, ALB, Target Group, LogGroup</td><td>Task/Service는 CI/CD에서 생성</td></tr>
+                    </tbody>
+                </table>
             </div>
             <div class="doc-section">
                 <div class="doc-h2">비용 구조</div>
                 <table class="schema-table">
                     <thead><tr><th>항목</th><th>선택</th><th>이유</th></tr></thead>
                     <tbody>
-                    <tr><td>서버</td><td>EC2 t3.micro</td><td>프리티어 1년 무료. 이후 ~$8/월</td></tr>
-                    <tr><td>DB</td><td>컨테이너 MySQL</td><td>RDS 대비 $15~20/월 절감</td></tr>
-                    <tr><td>캐시</td><td>컨테이너 Redis</td><td>ElastiCache 대비 비용 절감</td></tr>
+                    <tr><td>앱 서버</td><td>ECS Fargate</td><td>서버 관리 불필요, 오토스케일링 지원</td></tr>
+                    <tr><td>인프라</td><td>EC2 t3.micro</td><td>프리티어 1년 무료. 이후 ~$8/월</td></tr>
+                    <tr><td>DB·캐시</td><td>컨테이너 운영</td><td>RDS·ElastiCache 대비 $30+/월 절감</td></tr>
                     <tr><td>운영 시간</td><td>영업시간만 가동</td><td>EventBridge 스케줄로 자동 온/오프</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2-4. CI/CD 파이프라인 -->
+        <div class="doc-page" id="doc-cicd">
+            <div class="doc-section">
+                <div class="doc-h2">CI/CD 파이프라인 전략</div>
+                <div class="doc-desc">
+                    GitHub main 브랜치 push 시 GitHub Actions가 자동으로 빌드 → ECR push → ECS 롤링 배포까지 처리.
+                    CloudFormation은 인프라(변경 드묾), GitHub Actions는 애플리케이션(배포마다)을 담당해 역할을 분리했다.
+                </div>
+            </div>
+
+            <!-- 파이프라인 도해 -->
+            <div class="doc-section" style="padding-bottom:0">
+                <div class="doc-h2">파이프라인 흐름</div>
+            </div>
+
+            <div class="cicd-pipeline">
+
+                <!-- TRIGGER -->
+                <div class="pipe-row">
+                    <div class="pipe-node trigger">
+                        <div class="pipe-icon">⚡</div>
+                        <div class="pipe-label">git push</div>
+                        <div class="pipe-sub">main 브랜치</div>
+                    </div>
+                    <div class="pipe-arrow">→</div>
+                    <div class="pipe-node trigger">
+                        <div class="pipe-icon">🔁</div>
+                        <div class="pipe-label">GitHub Actions</div>
+                        <div class="pipe-sub">workflow_dispatch도 가능</div>
+                    </div>
+                </div>
+
+                <div class="pipe-divider">▼</div>
+
+                <!-- JOB 1 -->
+                <div class="pipe-job">
+                    <div class="pipe-job-title"><span class="job-badge">Job 1</span> Build</div>
+                    <div class="pipe-steps">
+                        <div class="pipe-step">
+                            <span class="step-dot green"></span>
+                            <span>JDK 17 세팅 (Gradle 캐시 활용)</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot green"></span>
+                            <span>./gradlew :order-service:build -x test</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot green"></span>
+                            <span>./gradlew :inventory-service:build -x test</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot green"></span>
+                            <span>JAR artifact 업로드 (Job 간 전달)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pipe-divider">▼  needs: build</div>
+
+                <!-- JOB 2 -->
+                <div class="pipe-job">
+                    <div class="pipe-job-title"><span class="job-badge">Job 2</span> Docker Build &amp; ECR Push</div>
+                    <div class="pipe-steps">
+                        <div class="pipe-step">
+                            <span class="step-dot blue"></span>
+                            <span>JAR artifact 다운로드</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot blue"></span>
+                            <span>AWS credentials 설정 (GitHub Secrets)</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot blue"></span>
+                            <span>ECR 로그인</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot blue"></span>
+                            <span>이미지 태그: <code>SHA 앞 8자리</code> (롤백 버전 식별)</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot blue"></span>
+                            <span>docker build → ECR push (order + inventory)</span>
+                        </div>
+                    </div>
+                    <div class="pipe-note">
+                        💡 <strong>태그 전략</strong>: <code>:SHA</code> + <code>:latest</code> 동시 push.
+                        최신은 latest로 빠르게 참조, 롤백은 SHA로 정확하게.
+                    </div>
+                </div>
+
+                <div class="pipe-divider">▼  needs: push-ecr</div>
+
+                <!-- JOB 3 -->
+                <div class="pipe-job">
+                    <div class="pipe-job-title"><span class="job-badge">Job 3</span> Deploy to ECS Fargate</div>
+                    <div class="pipe-steps">
+                        <div class="pipe-step">
+                            <span class="step-dot orange"></span>
+                            <span>CloudFormation Exports에서 인프라 값 수집</span>
+                        </div>
+                        <div class="pipe-step indent">
+                            <span class="step-dot dim"></span>
+                            <span class="dim">InfraIp / ClusterName / SubnetIds / SgIds / TargetGroupArns</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot orange"></span>
+                            <span>ECS Task Definition 등록 (order + inventory)</span>
+                        </div>
+                        <div class="pipe-step indent">
+                            <span class="step-dot dim"></span>
+                            <span class="dim">환경변수(DB·Redis·RabbitMQ 주소)를 동적으로 주입</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot orange"></span>
+                            <span>ECS Service 생성(최초) 또는 업데이트(재배포)</span>
+                        </div>
+                        <div class="pipe-step indent">
+                            <span class="step-dot dim"></span>
+                            <span class="dim">ACTIVE 서비스 존재 여부 확인 → create / update 분기</span>
+                        </div>
+                        <div class="pipe-step">
+                            <span class="step-dot orange"></span>
+                            <span>ecs wait services-stable — 안정화 대기</span>
+                        </div>
+                    </div>
+                    <div class="pipe-note">
+                        🔄 <strong>롤링 배포</strong>: MinimumHealthyPercent 100% → 새 Task 먼저 뜨고 구 Task 내림.
+                        다운타임 없이 교체.
+                    </div>
+                </div>
+
+                <div class="pipe-divider">▼</div>
+
+                <!-- RESULT -->
+                <div class="pipe-row">
+                    <div class="pipe-node result">
+                        <div class="pipe-icon">✅</div>
+                        <div class="pipe-label">배포 완료</div>
+                        <div class="pipe-sub">ALB DNS로 즉시 접속 가능</div>
+                    </div>
+                </div>
+
+            </div><!-- cicd-pipeline -->
+
+            <div class="doc-section" style="margin-top:24px">
+                <div class="doc-h2">역할 분담 — CloudFormation vs GitHub Actions</div>
+                <table class="schema-table">
+                    <thead><tr><th>구분</th><th>담당</th><th>변경 빈도</th><th>이유</th></tr></thead>
+                    <tbody>
+                    <tr>
+                        <td>VPC · Subnet · SG</td>
+                        <td>CloudFormation</td>
+                        <td>거의 없음</td>
+                        <td>네트워크 기반은 안정성이 중요</td>
+                    </tr>
+                    <tr>
+                        <td>EC2 · ECR · ECS Cluster · ALB</td>
+                        <td>CloudFormation</td>
+                        <td>드묾</td>
+                        <td>인프라 변경은 리뷰 후 의도적으로</td>
+                    </tr>
+                    <tr>
+                        <td>Task Definition · ECS Service</td>
+                        <td>GitHub Actions</td>
+                        <td>배포마다</td>
+                        <td>이미지 태그가 매번 바뀌므로 CI/CD가 적합</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="doc-section">
+                <div class="doc-h2">GitHub Secrets 목록</div>
+                <table class="schema-table">
+                    <thead><tr><th>Secret 키</th><th>값</th></tr></thead>
+                    <tbody>
+                    <tr><td>AWS_ACCESS_KEY_ID</td><td>IAM 사용자 액세스 키</td></tr>
+                    <tr><td>AWS_SECRET_ACCESS_KEY</td><td>IAM 사용자 시크릿 키</td></tr>
+                    <tr><td>AWS_REGION</td><td>ap-northeast-2</td></tr>
+                    <tr><td>AWS_ACCOUNT_ID</td><td>12자리 계정 ID</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1116,6 +1387,78 @@
       el.classList.add('selected');
     }
 
+    /**
+     * 세션 카드에 주문 행 추가 (조리완료 시 수령 버튼 표시)
+     * status: 'COOKING' | 'READY'
+     */
+    function addSessionOrder(uuid, orderNo, desc, status) {
+      const card = document.getElementById('sess-' + uuid);
+      if (!card) return;
+
+      let ordersDiv = card.querySelector('.session-card-orders');
+      if (!ordersDiv) {
+        ordersDiv = document.createElement('div');
+        ordersDiv.className = 'session-card-orders';
+        card.appendChild(ordersDiv);
+      }
+
+      const row = document.createElement('div');
+      row.className = 'session-order-row';
+      row.id = 'sorder-' + orderNo;
+      row.dataset.uuid = uuid;  // ORDER_DELIVERED 시 잔여 주문 확인용
+      row.innerHTML = `
+        <span class="session-order-no">${orderNo}</span>
+        <span style="flex:2;color:var(--muted)">${desc}</span>
+        ${status === 'READY'
+          ? `<button class="btn-receive" onclick="confirmReceive('${uuid}','${orderNo}',this)">수령</button>`
+          : `<span style="font-size:0.62rem;color:var(--accent)">조리중</span>`
+        }`;
+      ordersDiv.appendChild(row);
+    }
+
+    /**
+     * 조리완료 시 세션 카드의 '조리중' → '수령' 버튼으로 교체
+     */
+    function markOrderReady(orderNo) {
+      const row = document.getElementById('sorder-' + orderNo);
+      if (!row) return;
+      const span = row.querySelector('span[style*="accent"]');
+      if (span) {
+        // uuid는 row의 부모 card에서 추출
+        const card = row.closest('.session-card');
+        const uuid = card ? card.id.replace('sess-', '') : '';
+        span.outerHTML = `<button class="btn-receive" onclick="confirmReceive('${uuid}','${orderNo}',this)">수령</button>`;
+      }
+      // 상태 dot → done
+      const card = row.closest('.session-card');
+      if (card) {
+        const dot = card.querySelector('.session-status-dot');
+        if (dot) { dot.className = 'session-status-dot done'; }
+      }
+    }
+
+    /**
+     * 수령 확인 — 관리자가 클릭
+     * 서버: POST /api/admin/order/receive?orderNo=...
+     * 서버가 SSE checkAndClose 판단 후 연결 종료
+     */
+    async function confirmReceive(uuid, orderNo, btn) {
+      btn.disabled = true;
+      btn.textContent = '처리중';
+
+      try {
+        await fetch(`/api/admin/order/receive?orderNo=${orderNo}`, { method: 'POST' });
+        btn.textContent = '완료';
+        btn.style.cssText = 'color:var(--muted);border-color:var(--border);background:none;cursor:default';
+        // 실제 상태 변경은 ORDER_DELIVERED SSE 수신 시 처리
+        showToast(`✅ ${orderNo} 수령 완료 처리`);
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '수령';
+        showToast('⚠ 수령 처리 실패');
+      }
+    }
+
     // ── 주문 타입 선택 ──────────────────────────
     function selectOrderType(type, el) {
       document.querySelectorAll('.order-type-btn').forEach(b => b.classList.remove('selected'));
@@ -1182,14 +1525,17 @@
     }
 
     // ── 제조현황 row 추가 ──────────────────────
-    function addMfgRow(no, desc, chipCls, chipLabel) {
+    function addMfgRow(no, desc, chipCls, chipLabel, uuid = null) {
       const tbody = document.getElementById('mfg-tbody');
       const tr = document.createElement('tr');
+      const btn = (chipCls === 'chip-ready' && uuid)
+        ? `<button class="deliver-btn" onclick="confirmReceive('${uuid}','${no}',this)">수령</button>`
+        : '';
       tr.innerHTML = `
         <td class="mfg-order-no">${no}</td>
         <td class="mfg-desc">${desc}</td>
         <td><span class="chip ${chipCls}">${chipLabel}</span></td>
-        <td></td>`;
+        <td>${btn}</td>`;
       tbody.prepend(tr);
     }
 
@@ -1219,6 +1565,163 @@
       t.classList.add('show');
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    // ── 관리자 SSE 연결 (서버 브로드캐스트 수신) ──────────────
+    (function initAdminSse() {
+      // 탭 단위 식별자
+      let adminKey = sessionStorage.getItem('admin_key');
+      if (!adminKey) {
+        adminKey = crypto.randomUUID();
+        sessionStorage.setItem('admin_key', adminKey);
+      }
+
+      const sse = new EventSource(`/admin/sse/connect?adminKey=${adminKey}`);
+
+      sse.addEventListener('ADMIN_CONNECTED', async () => {
+        console.log('[AdminSSE] 연결 완료 — 스냅샷 로드');
+        // 연결 즉시 현재 진행중 주문 스냅샷 로드
+        try {
+          const res = await fetch('/api/admin/sessions/snapshot');
+          const orders = await res.json();
+          orders.forEach(o => {
+            ensureSessionCard(o.uuid);
+            const uiStatus  = o.status === 'PAID' ? 'COOKING' : o.status;
+            addSessionOrder(o.uuid, o.orderNo, o.desc, uiStatus);
+
+            const chipCls   = o.status === 'READY' ? 'chip-ready' : 'chip-cooking';
+            const chipLabel = o.status === 'READY' ? '조리 완료'  : '조리중';
+            addMfgRow(o.orderNo, o.desc, chipCls, chipLabel, o.uuid);
+          });
+          if (orders.length > 0) showToast(`📋 진행중 주문 ${orders.length}건 로드`);
+        } catch(e) { console.error('스냅샷 로드 실패', e); }
+      });
+
+      // 고객 세션 연결 → 세션 카드 추가
+      sse.addEventListener('SESSION_OPENED', (e) => {
+        const { uuid } = JSON.parse(e.data);
+        addSessionCard(uuid);
+        showToast('🟢 새 고객 접속: ' + uuid.slice(0, 8));
+      });
+
+      // 고객 세션 종료 → 세션 카드 제거
+      sse.addEventListener('SESSION_CLOSED', (e) => {
+        const { uuid } = JSON.parse(e.data);
+        removeSessionCard(uuid);
+        showToast('⚪ 고객 이탈: ' + uuid.slice(0, 8));
+      });
+
+      // 결제완료 → 세션 카드에 조리중 주문 행 추가 + history 로그
+      sse.addEventListener('ORDER_COOKING', (e) => {
+        const { uuid, orderNo, desc, amount } = JSON.parse(e.data);
+        ensureSessionCard(uuid);
+        addSessionOrder(uuid, orderNo, desc, 'COOKING');
+        addMfgRow(orderNo, desc, 'chip-cooking', '조리중');
+        // 실제 금액으로 history 추가
+        addLogRow(orderNo, desc, parseInt(amount || '0'));
+        showToast('👨‍🍳 조리 시작: ' + orderNo);
+      });
+
+      // 조리완료 → 수령 버튼으로 교체
+      sse.addEventListener('ORDER_READY', (e) => {
+        const { uuid, orderNo } = JSON.parse(e.data);
+        markOrderReady(orderNo);
+        updateMfgRow(orderNo, 'chip-ready', '조리 완료');
+        showToast('🍜 조리 완료: ' + orderNo);
+      });
+
+      // 수령완료 → mfgRow 10초 후 제거 + 잔여 없으면 세션카드 제거
+      sse.addEventListener('ORDER_DELIVERED', (e) => {
+        const { uuid, orderNo } = JSON.parse(e.data);
+        markOrderDelivered(orderNo);
+        updateMfgRow(orderNo, 'chip-delivered', '수령 완료');
+
+        // 10초 후 제조현황 row 제거
+        setTimeout(() => removeMfgRow(orderNo), 10_000);
+
+        // 해당 uuid의 진행중 주문 행이 전부 완료됐으면 세션카드 페이드
+        setTimeout(() => {
+          const card = document.getElementById('sess-' + uuid);
+          if (!card) return;
+          const activeRows = card.querySelectorAll
+            ? 0  // 세션카드엔 주문 행이 없으므로 sorder 체크
+            : 0;
+          // sorder-* 중 해당 uuid 것 전부 delivered 상태인지 확인
+          const allDone = [...document.querySelectorAll('[id^="sorder-"]')]
+            .filter(el => el.dataset.uuid === uuid)
+            .every(el => el.classList.contains('delivered'));
+          if (allDone) removeSessionCard(uuid);
+        }, 10_500);
+      });
+
+      sse.onerror = () => {
+        console.warn('[AdminSSE] 연결 끊김 — 자동 재연결 시도');
+      };
+    })();
+
+    // ── 세션 카드 동적 관리 ───────────────────────────────────
+
+    function addSessionCard(uuid) {
+      if (document.getElementById('sess-' + uuid)) return; // 중복 방지
+      const list = document.getElementById('session-list');
+      const card = document.createElement('div');
+      card.className = 'session-card';
+      card.id = 'sess-' + uuid;
+      card.onclick = function() { selectSession(uuid, this); };
+      card.innerHTML = `
+        <div class="session-card-id">${uuid.slice(0, 8)}</div>
+        <div class="session-card-sub">QR 고객</div>
+        <div class="session-status-dot active" id="dot-${uuid}"></div>`;
+      list.appendChild(card);
+    }
+
+    function ensureSessionCard(uuid) {
+      if (!document.getElementById('sess-' + uuid)) addSessionCard(uuid);
+    }
+
+    function removeSessionCard(uuid) {
+      const card = document.getElementById('sess-' + uuid);
+      if (card) {
+        card.style.opacity = '0.4';
+        setTimeout(() => card.remove(), 3000);
+      }
+    }
+
+    function markOrderDelivered(orderNo) {
+      const row = document.getElementById('sorder-' + orderNo);
+      if (!row) return;
+      row.classList.add('delivered');  // ORDER_DELIVERED 시 잔여 주문 판단용
+      const btn = row.querySelector('.btn-receive');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '완료';
+        btn.style.cssText = 'color:var(--muted);border-color:var(--border);background:none;cursor:default;font-size:0.62rem;padding:2px 8px';
+      }
+    }
+
+    function removeMfgRow(orderNo) {
+      const rows = document.querySelectorAll('#mfg-tbody tr');
+      rows.forEach(row => {
+        if (row.querySelector('.mfg-order-no')?.textContent === orderNo) {
+          row.style.transition = 'opacity 0.5s';
+          row.style.opacity = '0';
+          setTimeout(() => row.remove(), 500);
+        }
+      });
+    }
+
+    function updateMfgRow(orderNo, chipCls, chipLabel) {
+      const rows = document.querySelectorAll('#mfg-tbody tr');
+      rows.forEach(row => {
+        const noCell = row.querySelector('.mfg-order-no');
+        if (noCell && noCell.textContent === orderNo) {
+          const chip = row.querySelector('.chip');
+          if (chip) {
+            chip.className = 'chip ' + chipCls;
+            chip.textContent = chipLabel;
+          }
+        }
+      });
     }
 </script>
 </body>

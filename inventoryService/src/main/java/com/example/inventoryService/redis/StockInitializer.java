@@ -1,7 +1,7 @@
 package com.example.inventoryService.redis;
 
-import com.example.inventoryService.product.entity.Product;
-import com.example.inventoryService.product.repository.ProductRepository;
+import com.example.inventoryService.stock.entity.Stock;
+import com.example.inventoryService.stock.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -26,7 +26,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class StockInitializer implements ApplicationRunner {
 
-    private final ProductRepository productRepository;
+    private final StockRepository productRepository;
     private final StockRedisWriter stockRedisWriter;
 
     @Override
@@ -34,7 +34,7 @@ public class StockInitializer implements ApplicationRunner {
         log.info("[Redis] 재고 초기 적재 시작...");
 
         // isDeleted = false인 상품만 조회 (@SQLRestriction 적용됨)
-        List<Product> products = productRepository.findAll();
+        List<Stock> products = productRepository.findAll();
 
         if (products.isEmpty()) {
             log.warn("[Redis] 적재할 상품이 없습니다. DB 시드 데이터를 확인하세요.");

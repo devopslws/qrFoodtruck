@@ -1,6 +1,6 @@
 package com.example.inventoryService.redis;
 
-import com.example.inventoryService.product.entity.Product;
+import com.example.inventoryService.stock.entity.Stock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -30,31 +30,31 @@ public class StockRedisWriter {
      * - stock:{id}   String: 재고 차감용
      * - displayed:{id} String: 전시 여부 검증용
      */
-    public void loadAll(List<Product> products) {
-        for (Product product : products) {
+    public void loadAll(List<Stock> products) {
+        for (Stock product : products) {
             loadOne(product);
         }
         log.info("[Redis] 전체 상품 {}개 적재 완료", products.size());
     }
 
-    public void loadOne(Product product) {
+    public void loadOne(Stock product) {
         Long id = product.getId();
 
         // Hash: 고객 메뉴 조회용
         redisTemplate.opsForHash().putAll(productKey(id), Map.of(
                 FIELD_NAME,      product.getName(),
                 FIELD_PRICE,     String.valueOf(product.getPrice()),
-                FIELD_QUANTITY,  String.valueOf(product.getStockQuantity()),
+                FIELD_QUANTITY,  String.valueOf(product.getQuantity()),
                 FIELD_DISPLAYED, String.valueOf(product.isDisplayed())
         ));
 
         // String: 주문 시 재고 검증·차감용 (원자적 DECR을 위해 분리)
-        redisTemplate.opsForValue().set(stockKey(id), String.valueOf(product.getStockQuantity()));
+        redisTemplate.opsForValue().set(stockKey(id), String.valueOf(product.getQuantity()));
 
         // String: 주문 시 전시 여부 검증용
         redisTemplate.opsForValue().set(displayedKey(id), String.valueOf(product.isDisplayed()));
 
-        log.debug("[Redis] 상품 적재: id={}, name={}, stock={}", id, product.getName(), product.getStockQuantity());
+        log.debug("[Redis] 상품 적재: id={}, name={}, stock={}", id, product.getName(), product.getQuantity());
     }
 
     /**

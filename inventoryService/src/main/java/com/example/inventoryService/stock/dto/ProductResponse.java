@@ -1,6 +1,5 @@
-package com.example.inventoryService.product.dto;
+package com.example.inventoryService.stock.dto;
 
-import com.example.inventoryService.redis.StockRedisReader;
 import lombok.Builder;
 import lombok.Getter;
 

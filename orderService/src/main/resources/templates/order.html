@@ -296,12 +296,13 @@
 
         .order-no {
           font-family: 'Space Mono', monospace;
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           font-weight: 700;
           color: var(--accent2);
-          width: 36px;
         }
-        .order-desc { flex: 1; font-size: 0.85rem; color: var(--text); }
+        .order-desc { font-size: 0.88rem; color: var(--text); margin-top: 2px; }
+        .order-info { display: flex; flex-direction: column; flex: 1; gap: 1px; }
+        .order-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
         .status-chip {
           font-size: 0.7rem;
@@ -367,10 +368,48 @@
           opacity: 1;
           transform: translateX(-50%) translateY(0);
         }
+        /* 결제 실패 배너 */
+        #fail-banner {
+          display: none;
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background: #2d1414;
+          border-bottom: 1px solid #7f1d1d;
+          padding: 12px 20px;
+          opacity: 1;
+          transition: opacity 0.4s ease;
+          animation: slideDown 0.3s ease;
+        }
+        #fail-banner.show { display: flex; align-items: center; gap: 12px; }
+        #fail-banner.hiding { opacity: 0; }
+        @keyframes slideDown {
+          from { transform: translateY(-100%); opacity: 0; }
+          to   { transform: translateY(0);     opacity: 1; }
+        }
+        .fail-banner-icon  { font-size: 1.2rem; flex-shrink: 0; }
+        .fail-banner-body  { flex: 1; }
+        .fail-banner-title { font-size: 0.9rem; font-weight: 600; color: #fca5a5; margin-bottom: 2px; }
+        .fail-banner-sub   { font-size: 0.75rem; color: #f87171; opacity: 0.8; }
+        .fail-banner-close {
+          background: none; border: none; color: #f87171;
+          font-size: 1rem; cursor: pointer; padding: 4px; opacity: 0.7;
+        }
+        .fail-banner-close:hover { opacity: 1; }
     </style>
     <script src="https://js.tosspayments.com/v2/standard"></script>
 </head>
 <body>
+
+<!-- 결제 실패 배너 (재고 부족 / 일반 오류) -->
+<div id="fail-banner">
+    <span class="fail-banner-icon">⚠️</span>
+    <div class="fail-banner-body">
+        <div class="fail-banner-title" id="fail-banner-title">결제에 실패했습니다.</div>
+        <div class="fail-banner-sub"  id="fail-banner-sub"></div>
+    </div>
+    <button class="fail-banner-close" onclick="closeFailBanner()">✕</button>
+</div>
 
 <header>
     <div class="logo">🚚 FOOD TRUCK</div>
@@ -457,6 +496,7 @@
     }
 
     // ──────────────────────────────────────────────
+    // ──────────────────────────────────────────────
     // 상태
     // ──────────────────────────────────────────────
     let cart = {};          // { productId: { name, price, qty } }
@@ -465,26 +505,83 @@
     let idleCountdown = 30;
     let idleInterval = null;
     let sseSource = null;
+    let heartbeatInterval = null;
 
     // 주문 목록 (SSE로 상태 갱신)
     // 구조: { orderNo, desc, status: 'ACCEPTED'|'COOKING'|'READY'|'RECEIVED' }
     let orders = [];
 
     // ──────────────────────────────────────────────
+    // uuid 관리 (sessionStorage 중심)
+    // ──────────────────────────────────────────────
+
+    function getUuid() {
+      return sessionStorage.getItem('ft_uuid');
+    }
+
+    async function ensureUuid() {
+      let uuid = getUuid();
+      if (uuid) {
+        // sessionStorage에 있어도 서버(Redis) 유효성 확인
+        try {
+          const check = await fetch(`/api/session/heartbeat?uuid=${uuid}`, { method: 'POST' });
+          if (check.ok) return uuid;  // 유효 → 재사용
+          // 404 등 → 만료됨, 새로 발급
+        } catch (e) { /* 네트워크 오류는 무시하고 기존 uuid 사용 */ return uuid; }
+      }
+      // 신규 발급
+      const res  = await fetch('/api/session/init');
+      const data = await res.json();
+      uuid = data.uuid;
+      sessionStorage.setItem('ft_uuid', uuid);
+      return uuid;
+    }
+
+    // 30초마다 서버에 생존 신호 전송
+    function startHeartbeat(uuid) {
+      if (heartbeatInterval) return;
+      heartbeatInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/session/heartbeat?uuid=${uuid}`, { method: 'POST' });
+          if (res.status === 404) {
+            // 서버에서 uuid 만료됨 → 재발급
+            sessionStorage.removeItem('ft_uuid');
+            stopHeartbeat();
+            deactivateSession();
+          }
+        } catch (e) { /* 네트워크 오류 무시 */ }
+      }, 30_000);
+    }
+
+    function stopHeartbeat() {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+
+    // ──────────────────────────────────────────────
     // 세션 / SSE
     // ──────────────────────────────────────────────
-    function activateSession() {
+
+    async function activateSession() {
       if (sessionActive) return;
+      const uuid = await ensureUuid();
       sessionActive = true;
+
       const badge = document.getElementById('session-badge');
       badge.textContent = 'SSE 연결됨';
       badge.classList.add('active');
 
-      // SSE 연결 시작
-      sseSource = new EventSource('/sse/connect');
+      // SSE 연결 (uuid를 쿼리파라미터로 전달, 쿠키 없음)
+      sseSource = new EventSource(`/sse/connect?uuid=${uuid}`);
 
       sseSource.addEventListener('CONNECTED', () => {
         showToast('🔗 실시간 연결되었습니다');
+      });
+
+      sseSource.addEventListener('COOKING_START', (e) => {
+        const { orderNo } = JSON.parse(e.data);
+        updateOrderStatus(orderNo, 'COOKING');
+        showToast(`👨‍🍳 ${orderNo} 조리가 시작되었습니다!`);
       });
 
       sseSource.addEventListener('COOKING_DONE', (e) => {
@@ -493,14 +590,23 @@
         showToast(`🍜 ${orderNo} 조리 완료! 카운터에서 수령하세요.`);
       });
 
-      sseSource.addEventListener('STOCK_UPDATED', (e) => {
-        const updated = JSON.parse(e.data);
-        // 재고 갱신 반영
-        updated.forEach(({ id, stock }) => {
-          const item = MENU_DATA.find(m => m.id === id);
-          if (item) item.stock = stock;
-        });
-        renderMenu();
+      // 관리자가 수령 확인 버튼 클릭 시 수신
+      sseSource.addEventListener('ORDER_RECEIVED', (e) => {
+        const { orderNo } = JSON.parse(e.data);
+        updateOrderStatus(orderNo, 'RECEIVED');
+        showToast(`✅ ${orderNo} 수령 완료! 감사합니다 🙏`);
+
+        // 10초 후 해당 row 페이드아웃 제거 → 남은 주문 없으면 SSE 종료
+        const row = document.getElementById('row-' + orderNo);
+        setTimeout(() => {
+          if (row) row.style.transition = 'opacity 0.6s';
+          if (row) row.style.opacity = '0';
+          setTimeout(() => {
+            orders = orders.filter(o => o.orderNo !== orderNo);
+            renderOrders();
+            checkAndCloseSse();
+          }, 600);
+        }, 10_000);
       });
 
       sseSource.addEventListener('SESSION_END', () => {
@@ -508,31 +614,42 @@
       });
 
       sseSource.onerror = () => {
-        deactivateSession();
-        showToast('⚠ 연결이 끊어졌습니다.');
+        if (sseSource) { sseSource.close(); sseSource = null; }
+        sessionActive = false;
+
+        // 진행중 주문이 있을 때만 재연결 시도 (정상 종료된 세션은 재연결 안 함)
+        const hasActiveOrders = orders.some(o => o.status !== 'RECEIVED');
+        if (hasActiveOrders) {
+          setTimeout(() => {
+            if (!sessionActive && orders.some(o => o.status !== 'RECEIVED')) {
+              console.log('[SSE] 재연결 시도...');
+              activateSession();
+            }
+          }, 3000);
+        }
       };
 
+      startHeartbeat(uuid);
       clearIdleTimer();
     }
 
     function deactivateSession() {
       sessionActive = false;
+      stopHeartbeat();
       const badge = document.getElementById('session-badge');
       badge.textContent = '대기중';
       badge.classList.remove('active');
       if (sseSource) { sseSource.close(); sseSource = null; }
     }
 
-    function checkAllDelivered() {
-      if (orders.length === 0) return;
-      const allDone = orders.every(o => o.status === 'RECEIVED');
-      if (allDone) {
-        setTimeout(() => {
-          orders = [];
-          renderOrders();
-          deactivateSession();
-          showToast('✅ 모든 주문이 완료되었습니다. 감사합니다!');
-        }, 500);
+    function checkAndCloseSse() {
+      // 수령 안 된 주문이 하나도 없을 때 SSE 종료
+      const hasActive = orders.some(o => o.status !== 'RECEIVED');
+      if (!hasActive && orders.length === 0) {
+        const uuid = getUuid();
+        if (uuid) fetch(`/sse/close?uuid=${uuid}`, { method: 'POST' });
+        deactivateSession();
+        showToast('✅ 모든 주문이 완료되었습니다. 감사합니다!');
       }
     }
 
@@ -598,7 +715,7 @@
     // ──────────────────────────────────────────────
     // 장바구니
     // ──────────────────────────────────────────────
-    function addToCart(productId) {
+    async function addToCart(productId) {
       const item = MENU_DATA.find(m => m.id === productId);
       if (!item || item.stock === 0) return;
 
@@ -616,7 +733,7 @@
       }
 
       // 첫 담기 시 세션 활성화 + idle 타이머 시작
-      if (!sessionActive) activateSession();
+      if (!sessionActive) await activateSession();
       startIdleTimer();
 
       renderCart();
@@ -694,6 +811,7 @@
     // ──────────────────────────────────────────────
     async function handlePay() {
       if (Object.keys(cart).length === 0) return;
+      clearIdleTimer(); // 결제 진행 중 idle 타이머 정지
 
       const items = Object.entries(cart).map(([id, v]) => ({
         productId: Number(id),
@@ -707,9 +825,10 @@
         : `${items[0].productName} 외 ${items.length - 1}건`;
 
       // 주문 생성 요청
+      const uuid = getUuid();
       let readyData;
       try {
-        const res = await fetch('/api/payment/ready', {
+        const res = await fetch(`/api/payment/ready?uuid=${uuid}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orderName, totalPrice, items })
@@ -725,14 +844,22 @@
       const tossPayments = TossPayments(readyData.clientKey);
       const payment = tossPayments.payment({ customerKey: 'ANONYMOUS' });
 
-      await payment.requestPayment({
-        method: 'CARD',
-        amount: { currency: 'KRW', value: readyData.amount },
-        orderId: readyData.orderNo,
-        orderName: readyData.orderName,
-        successUrl: window.location.origin + '/payment/success',
-        failUrl: window.location.origin + '/payment/fail',
-      });
+      try {
+        await payment.requestPayment({
+          method: 'CARD',
+          amount: { currency: 'KRW', value: readyData.amount },
+          orderId: readyData.orderNo,
+          orderName: readyData.orderName,
+          successUrl: window.location.origin + '/payment/success',
+          failUrl: window.location.origin + '/payment/fail',
+          windowTarget: 'iframe',
+        });
+      } catch (e) {
+        // 고객이 결제창 취소 → 결제 버튼 다시 활성화 + idle 타이머 재시작
+        showToast('결제가 취소되었습니다.');
+        document.getElementById('btn-pay').disabled = false;
+        startIdleTimer(); // 결제 취소 후 idle 감지 재개
+      }
     }
 
     function addOrder(orderNo, desc) {
@@ -756,7 +883,6 @@
       if (!order) return;
       order.status = status;
       renderOrders();
-      if (status === 'RECEIVED') checkAllDelivered();
     }
 
     const STATUS_MAP = {
@@ -778,14 +904,16 @@
       list.innerHTML = orders.map(o => {
         const s = STATUS_MAP[o.status];
         const showRefund = o.status === 'COOKING' || o.status === 'ACCEPTED';
-        const showReceived = o.status === 'READY';
         return `
           <div class="order-row" id="row-${o.orderNo}">
-            <span class="order-no">${o.orderNo}</span>
-            <span class="order-desc">${o.desc}</span>
-            <span class="status-chip ${s.cls}">${s.label}</span>
-            ${showRefund   ? `<button class="btn-refund" onclick="requestRefund('${o.orderNo}')">환불</button>` : ''}
-            ${showReceived ? `<button class="btn-add" style="font-size:0.72rem;padding:4px 10px" onclick="confirmReceive('${o.orderNo}')">수령확인</button>` : ''}
+            <div class="order-info">
+              <span class="order-no">${o.orderNo}</span>
+              <span class="order-desc">${o.desc}</span>
+            </div>
+            <div class="order-actions">
+              <span class="status-chip ${s.cls}">${s.label}</span>
+              ${showRefund ? `<button class="btn-refund" onclick="requestRefund('${o.orderNo}')">환불</button>` : ''}
+            </div>
           </div>`;
       }).join('');
     }
@@ -814,6 +942,31 @@
     }
 
     // ──────────────────────────────────────────────
+    // 결제 실패 배너
+    // ──────────────────────────────────────────────
+    let failBannerTimer = null;
+
+    function showFailBanner(title, sub, autoCloseMs = 7000) {
+      document.getElementById('fail-banner-title').textContent = title;
+      document.getElementById('fail-banner-sub').textContent   = sub;
+      document.getElementById('fail-banner').classList.add('show');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // 자동 닫힘 타이머 (기존 타이머 취소 후 재설정)
+      if (failBannerTimer) clearTimeout(failBannerTimer);
+      failBannerTimer = setTimeout(() => closeFailBanner(), autoCloseMs);
+    }
+
+    function closeFailBanner() {
+      const banner = document.getElementById('fail-banner');
+      banner.classList.add('hiding');
+      setTimeout(() => {
+        banner.classList.remove('show', 'hiding');
+      }, 400);
+      if (failBannerTimer) { clearTimeout(failBannerTimer); failBannerTimer = null; }
+    }
+
+    // ──────────────────────────────────────────────
     // Toast
     // ──────────────────────────────────────────────
     let toastTimer;
@@ -828,9 +981,67 @@
     // ──────────────────────────────────────────────
     // Init
     // ──────────────────────────────────────────────
-    loadMenu();   // 서버에서 메뉴 로드 후 renderMenu() 호출
-    renderCart();
-    renderOrders();
+    (async () => {
+      await loadMenu();
+      renderCart();
+      renderOrders();
+
+      // Toss 리다이렉트 결과 처리
+      const params = new URLSearchParams(window.location.search);
+      const result  = params.get('result');
+      const orderNo = params.get('orderNo');
+      const reason  = params.get('reason');
+
+      if (result === 'success' && orderNo) {
+        closeFailBanner();
+        showToast('💳 결제가 완료되었습니다!');
+        cart = {};
+        renderCart();
+        window.history.replaceState({}, '', '/orderView');
+      } else if (result === 'fail') {
+        if (reason === 'STOCK_INSUFFICIENT') {
+          // 재고 부족: 배너 + Toast + 장바구니 초기화 + 메뉴 재고 최신화
+          showToast('⚠ 재고가 부족합니다.');
+          showFailBanner(
+            '재고가 부족하여 결제가 취소되었습니다.',
+            '다른 고객이 먼저 구매했어요. 메뉴를 다시 선택해주세요.',
+            8000   // 8초 후 자동 닫힘
+          );
+          cart = {};
+          renderCart();
+          await loadMenu();   // 현재 재고 최신화
+        } else {
+          // 일반 결제 실패 (카드 오류 등)
+          showToast('⚠ 결제에 실패했습니다.');
+          showFailBanner(
+            '결제에 실패했습니다.',
+            '카드 정보를 확인하거나 다른 결제 수단을 이용해주세요.',
+            6000   // 6초 후 자동 닫힘
+          );
+        }
+        window.history.replaceState({}, '', '/orderView');
+      }
+
+      // 복귀 시 uuid가 있으면 진행중 주문 조회 → 있으면 SSE 재연결
+      const uuid = getUuid();
+      if (uuid) {
+        try {
+          const res = await fetch(`/api/order/active?uuid=${uuid}`);
+          if (res.ok) {
+            const activeOrders = await res.json();
+            if (activeOrders.length > 0) {
+              activeOrders.forEach(o => addOrder(o.orderNo, o.desc, o.status));
+              renderOrders();
+              // 기존 연결 강제 정리 후 재연결 (리다이렉트로 페이지 재로드된 경우)
+              if (sseSource) { sseSource.close(); sseSource = null; }
+              sessionActive = false;
+              await activateSession();
+              showToast('🔄 진행중인 주문을 불러왔습니다.');
+            }
+          }
+        } catch (e) { /* 조회 실패는 무시 */ }
+      }
+    })();
 </script>
 </body>
 </html>

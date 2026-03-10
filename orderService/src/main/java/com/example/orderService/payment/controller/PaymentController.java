@@ -7,15 +7,15 @@ import com.example.orderService.order.repository.OrderItemRepository;
 import com.example.orderService.order.repository.OrdersRepository;
 import com.example.orderService.payment.dto.PaymentReadyRequest;
 import com.example.orderService.payment.dto.PaymentReadyResponse;
-import com.example.orderService.payment.dto.PaymentSuccessResponse;
+
 import com.example.orderService.payment.dto.StockReserveRequest;
 import com.example.orderService.payment.dto.StockReserveResult;
 import com.example.orderService.payment.entity.Payment;
+import com.example.orderService.message.inventory.manufacture.ManufacturePublisher;
 import com.example.orderService.payment.repository.PaymentRepository;
 import com.example.orderService.common.redis.SessionRedisManager;
 import com.example.orderService.common.sse.SseEmitterManager;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -28,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.servlet.view.RedirectView;
 
 /**
  * 결제 컨트롤러
@@ -42,8 +43,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PaymentController {
 
-    private static final String SESSION_COOKIE = "SESSION_ID";
-
     private final TossConfig tossConfig;
     private final RestClient restClient;
     private final OrdersRepository ordersRepository;
@@ -51,14 +50,15 @@ public class PaymentController {
     private final PaymentRepository paymentRepository;
     private final SessionRedisManager sessionRedisManager;
     private final SseEmitterManager sseEmitterManager;
+    private final ManufacturePublisher manufacturePublisher;
+    private final com.example.orderService.admin.AdminNotifyPublisher adminNotifyPublisher;
 
     // ── 1. 주문 생성 + 결제창 정보 반환 ──────────────────────
 
     @PostMapping("/api/payment/ready")
     public ResponseEntity<PaymentReadyResponse> ready(@RequestBody PaymentReadyRequest request,
-                                                      HttpServletRequest httpRequest) {
-        String uuid = resolveUuid(httpRequest);
-        if (uuid == null) {
+                                                      @RequestParam String uuid) {
+        if (!sessionRedisManager.exists(uuid)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -98,40 +98,36 @@ public class PaymentController {
     // ── 2. Toss 결제 성공 콜백 ────────────────────────────────
 
     @GetMapping("/payment/success")
-    public ResponseEntity<PaymentSuccessResponse> success(
+    public RedirectView success(
             @RequestParam String paymentKey,
             @RequestParam String orderId,
-            @RequestParam int amount,
-            HttpServletRequest httpRequest) {
+            @RequestParam int amount) {
 
-        String uuid = resolveUuid(httpRequest);
         Orders order = ordersRepository.findByOrderNo(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("주문 없음: " + orderId));
 
-        // 장바구니에서 선차감 항목 구성
         List<OrderItem> items = orderItemRepository.findByOrder(order);
         List<StockReserveRequest.Item> stockItems = items.stream()
                 .map(i -> new StockReserveRequest.Item(i.getProductId(), i.getQuantity()))
                 .toList();
 
-        // 재고 선차감 (원자적 DECR)
+        // 재고 선차감
         StockReserveResult reserveResult = reserveStock(stockItems);
         if (!reserveResult.success()) {
             order.cancel();
             ordersRepository.save(order);
             log.warn("[Payment] 재고 부족으로 주문 취소: orderNo={}", orderId);
-            return ResponseEntity.ok(new PaymentSuccessResponse(false, orderId, "STOCK_INSUFFICIENT"));
+            return new RedirectView("/orderView?result=fail&reason=STOCK_INSUFFICIENT");
         }
 
         // Toss 최종 승인
         boolean confirmed = confirmToss(paymentKey, orderId, amount);
         if (!confirmed) {
-            // 승인 실패 → 선차감 복구
             releaseStock(stockItems);
             order.cancel();
             ordersRepository.save(order);
             log.warn("[Payment] Toss 승인 실패: orderNo={}", orderId);
-            return ResponseEntity.ok(new PaymentSuccessResponse(false, orderId, "TOSS_CONFIRM_FAILED"));
+            return new RedirectView("/orderView?result=fail&reason=TOSS_CONFIRM_FAILED");
         }
 
         // 결제 완료 처리
@@ -145,30 +141,39 @@ public class PaymentController {
                 .paidAmount(amount)
                 .build());
 
+        // uuid는 주문에서 가져옴 (Toss 리다이렉트 시 브라우저 컨텍스트 없으므로)
+        String uuid = order.getSessionUuid();
+
         // 세션 진행중 주문 +1
-        if (uuid != null) {
-            sessionRedisManager.incrementActiveOrders(uuid);
-        }
+        sessionRedisManager.incrementActiveOrders(uuid);
 
         // SSE → 조리 대기 상태 전송
-        if (uuid != null) {
-            sseEmitterManager.send(uuid, "COOKING_START", Map.of(
-                    "orderNo", orderId,
-                    "status", "COOKING"
-            ));
-        }
+        sseEmitterManager.send(uuid, "COOKING_START", Map.of(
+                "orderNo", orderId,
+                "status", "COOKING"
+        ));
 
-        // RabbitMQ 제조 지시 (TODO: 다음 단계에서 구현)
-        // manufacturePublisher.publish(orderId, items);
+        // RabbitMQ 제조 지시
+        manufacturePublisher.publish(orderId, uuid, items);
+
+        // 주문 status PAID → COOKING (스냅샷 구분용)
+        order.cooking();
+        ordersRepository.save(order);
+
+        // 관리자에게 조리 시작 알림 (fanout 브로드캐스트)
+        String desc = items.size() == 1
+                ? items.get(0).getProductName()
+                : items.get(0).getProductName() + " 외 " + (items.size() - 1) + "건";
+        adminNotifyPublisher.orderCooking(uuid, orderId, desc, String.valueOf(amount));
 
         log.info("[Payment] 결제 완료: orderNo={}, amount={}", orderId, amount);
-        return ResponseEntity.ok(new PaymentSuccessResponse(true, orderId, null));
+        return new RedirectView("/orderView?result=success&orderNo=" + orderId);
     }
 
     // ── 3. Toss 결제 실패 콜백 ───────────────────────────────
 
     @GetMapping("/payment/fail")
-    public ResponseEntity<Map<String, String>> fail(
+    public RedirectView fail(
             @RequestParam String code,
             @RequestParam String message,
             @RequestParam String orderId) {
@@ -179,11 +184,7 @@ public class PaymentController {
         });
 
         log.warn("[Payment] 결제 실패: orderNo={}, code={}, message={}", orderId, code, message);
-        return ResponseEntity.ok(Map.of(
-                "orderNo", orderId,
-                "code", code,
-                "message", message
-        ));
+        return new RedirectView("/orderView?result=fail&reason=" + code);
     }
 
     // ── private ──────────────────────────────────────────────
@@ -239,14 +240,6 @@ public class PaymentController {
             log.error("[Payment] Toss 최종 승인 실패", e);
             return false;
         }
-    }
-
-    private String resolveUuid(HttpServletRequest request) {
-        if (request.getCookies() == null) return null;
-        for (Cookie cookie : request.getCookies()) {
-            if (SESSION_COOKIE.equals(cookie.getName())) return cookie.getValue();
-        }
-        return null;
     }
 
 }

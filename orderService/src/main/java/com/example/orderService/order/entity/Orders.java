@@ -48,7 +48,20 @@ public class Orders {
         this.status = "PAID";
     }
 
+    public void cooking() {
+        this.status = "COOKING";
+    }
+
+    public void ready() {
+        this.status = "READY";
+    }
+
     public void cancel() {
         this.status = "CANCELLED";
     }
+
+    public void deliver() {
+        this.status = "DELIVERED";
+    }
 }
+
