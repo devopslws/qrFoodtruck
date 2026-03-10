@@ -27,7 +27,7 @@ public class AdminNotifyConsumer {
     public void consume(Map<String, Object> message) {
         String eventType = (String) message.get("eventType");
         @SuppressWarnings("unchecked")
-        Map<String, String> payload = (Map<String, String>) message.get("payload");
+        Map<String, Object> payload = (Map<String, Object>) message.get("payload");
 
         log.debug("[AdminNotify] 수신: event={}", eventType);
         adminSseManager.broadcast(eventType, payload);

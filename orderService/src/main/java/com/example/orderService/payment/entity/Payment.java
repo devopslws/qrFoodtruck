@@ -3,9 +3,7 @@ package com.example.orderService.payment.entity;
 import com.example.orderService.order.entity.Orders;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
-
 
 @Entity
 @Table(name = "payments")
@@ -41,5 +39,9 @@ public class Payment {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         paidAt = LocalDateTime.now();
+    }
+
+    public void cancel() {
+        this.status = "CANCELLED";
     }
 }

@@ -488,7 +488,10 @@
           transition: background 0.1s;
           cursor: default;
         }
-        .log-item:hover { background: var(--surface2); }
+        .log-item.clickable { cursor: pointer; }
+        .log-item.clickable:hover { background: var(--yellow-bg); }
+        .log-item.selected { background: var(--yellow-bg); border-left: 3px solid var(--accent2); }
+        .log-item:not(.clickable):hover { background: var(--surface2); }
         .log-time {
           font-family: 'Space Mono', monospace;
           font-size: 0.62rem;
@@ -839,10 +842,10 @@
         <div class="panel-sessions">
             <div class="panel-sessions-label">고객 세션</div>
 
-            <!-- default 1 -->
-            <div class="session-card selected" id="sess-default1" onclick="selectSession('default1', this)">
+            <!-- default 1 (POS 미구현 — 비활성) -->
+            <div class="session-card" id="sess-default1" style="opacity:0.45;cursor:not-allowed">
                 <div class="session-card-id">default 1</div>
-                <div class="session-card-sub">현장 주문용</div>
+                <div class="session-card-sub">현장 주문용 (준비중)</div>
                 <div class="session-status-dot idle" id="dot-default1"></div>
             </div>
 
@@ -861,113 +864,61 @@
         <div class="panel-center">
 
             <!-- 주문/결제 (default용) -->
+            <!-- ① POS 주문 (미구현 — 비활성) -->
             <div class="panel-block">
                 <div class="panel-block-title">주문 / 결제 — 현장 직접 주문</div>
                 <div class="order-default-grid">
-                    <button class="order-type-btn" onclick="selectOrderType('cash', this)">💵 현금결제</button>
-                    <button class="order-type-btn" onclick="selectOrderType('card', this)">💳 카드직불</button>
+                    <button class="order-type-btn" disabled>💵 현금결제</button>
+                    <button class="order-type-btn" disabled>💳 카드직불</button>
                 </div>
-                <button class="pos-btn" onclick="posOrder()">POS 주문</button>
+                <button class="pos-btn" disabled style="opacity:0.4;cursor:not-allowed">POS 주문 (준비중)</button>
             </div>
 
-            <!-- 환불 -->
+            <!-- ② 환불 처리 -->
             <div class="panel-block">
                 <div class="panel-block-title">환불 처리</div>
+                <div style="font-size:0.72rem;color:var(--muted);margin-bottom:8px">
+                    💡 우측 판매 LOG를 클릭하면 주문번호가 자동 입력됩니다.
+                </div>
                 <div class="refund-grid">
                     <input class="refund-input" id="refund-orderno" placeholder="주문번호 입력" />
-                    <button class="order-type-btn" style="padding:7px 12px;font-size:0.75rem" onclick="lookupOrder()">금액 조회</button>
+                    <button class="order-type-btn" style="padding:7px 8px;font-size:0.72rem;color:var(--muted)" onclick="clearRefundInput()" title="초기화">✕</button>
+                    <button class="order-type-btn" style="padding:7px 12px;font-size:0.75rem" onclick="lookupRefund()">금액 조회</button>
                 </div>
                 <div class="refund-amount-row">
-                    <input class="refund-amount-input" id="refund-amount" placeholder="취소금액" />
+                    <input class="refund-amount-input" id="refund-amount" placeholder="취소금액" type="number" min="1" oninput="validateRefundAmount()" />
                     <span class="refund-max" id="refund-max">/ — 원</span>
                 </div>
-                <button class="refund-btn" onclick="processRefund()">환불 처리</button>
+                <div id="refund-error" style="font-size:0.72rem;color:var(--red);min-height:14px;margin-bottom:4px"></div>
+                <button class="refund-btn" id="refund-btn" onclick="processRefund()" disabled>환불 처리 (투입 재고 폐기)</button>
             </div>
 
-            <!-- 실시간 재고 -->
-            <div class="panel-block">
+            <!-- ③ 실시간 재고 -->
+            <div class="panel-block" style="border-bottom:none">
                 <div class="panel-block-title">실시간 재고 (Redis)</div>
                 <table class="stock-table">
                     <thead>
-                    <tr>
-                        <th>상품</th>
-                        <th>재고</th>
-                        <th>조정재고</th>
-                    </tr>
+                    <tr><th>상품</th><th>현재</th><th>조정 (±)</th></tr>
                     </thead>
                     <tbody id="stock-tbody">
-                    <tr>
-                        <td>짜장면</td>
-                        <td id="stock-1">5</td>
-                        <td><input class="stock-adj-input" id="adj-1" placeholder="0" /></td>
-                    </tr>
-                    <tr>
-                        <td>짬뽕</td>
-                        <td id="stock-2">5</td>
-                        <td><input class="stock-adj-input" id="adj-2" placeholder="0" /></td>
-                    </tr>
-                    <tr>
-                        <td>탕수육</td>
-                        <td class="stock-zero" id="stock-3">0</td>
-                        <td><input class="stock-adj-input" id="adj-3" placeholder="0" /></td>
-                    </tr>
+                    <tr><td colspan="3" style="color:var(--muted);font-size:0.78rem;text-align:center">로딩 중...</td></tr>
                     </tbody>
                 </table>
                 <button class="inout-btn" onclick="adjustStock()">입/출고 적용</button>
             </div>
 
-            <!-- 제조현황 -->
-            <div class="panel-block" style="border-bottom:none">
-                <div class="panel-block-title">제조 현황</div>
-                <table class="mfg-table">
-                    <thead>
-                    <tr>
-                        <th style="width:56px">주문번호</th>
-                        <th>내역</th>
-                        <th>상태</th>
-                        <th style="width:70px"></th>
-                    </tr>
-                    </thead>
-                    <tbody id="mfg-tbody">
-                    </tbody>
-                </table>
-            </div>
-
         </div>
 
-        <!-- 우: 주문이력 로그 -->
+        <!-- 우: 판매 로그 (DB 조회) -->
         <div class="panel-right">
             <div class="log-header">
-                <div class="log-title">주문 이력 LOG</div>
-                <div class="log-subtitle">오늘 누적 · 검색 없음</div>
+                <div class="log-title">판매 LOG</div>
+                <div class="log-subtitle" id="log-subtitle">오늘 누적</div>
             </div>
 
-            <!-- 간단 바 차트 -->
-            <div class="chart-wrap">
-                <div class="chart-label">메뉴별 판매량</div>
-                <div class="bar-chart" id="bar-chart">
-                    <div class="bar-row">
-                        <span class="bar-name">짜장면</span>
-                        <div class="bar-track"><div class="bar-fill" id="bar-1" style="width:70%;background:#c8410a"></div></div>
-                        <span class="bar-val" id="bval-1">7</span>
-                    </div>
-                    <div class="bar-row">
-                        <span class="bar-name">짬뽕</span>
-                        <div class="bar-track"><div class="bar-fill" id="bar-2" style="width:50%;background:#e8a020"></div></div>
-                        <span class="bar-val" id="bval-2">5</span>
-                    </div>
-                    <div class="bar-row">
-                        <span class="bar-name">탕수육</span>
-                        <div class="bar-track"><div class="bar-fill" id="bar-3" style="width:20%;background:#2e7d4f"></div></div>
-                        <span class="bar-val" id="bval-3">2</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 로그 리스트 -->
             <div class="log-list" id="log-list">
                 <div class="log-empty" id="log-empty" style="padding:20px 12px;color:var(--muted);font-size:0.78rem;text-align:center">
-                    아직 주문 이력이 없습니다.
+                    로딩 중...
                 </div>
             </div>
         </div>
@@ -1460,93 +1411,250 @@
     }
 
     // ── 주문 타입 선택 ──────────────────────────
-    function selectOrderType(type, el) {
-      document.querySelectorAll('.order-type-btn').forEach(b => b.classList.remove('selected'));
+    // ── POS (미구현) ──────────────────────────
+    function posOrder() { /* 준비중 */ }
+    function selectOrderType() { /* 준비중 */ }
+
+    // ── 환불: 세션 클릭 시 주문번호 자동 입력 ──
+    function selectSession(id, el) {
+      if (id === 'default1') return;
+      document.querySelectorAll('.session-card').forEach(c => c.classList.remove('selected'));
       el.classList.add('selected');
+      document.getElementById('refund-btn').dataset.sessionUuid = id;
     }
 
-    // ── POS 주문 (데모) ──────────────────────────
-    let orderCounter = 100;
-    function posOrder() {
-      const no = 'P' + (++orderCounter);
-      addMfgRow(no, '현장 주문', 'chip-paid', '결제 완료');
-      addLogRow(no, '현장 직접 주문', 8000);
-      showD2();
-      showToast('📋 ' + no + ' POS 주문이 접수되었습니다.');
+    // ── 로그 클릭 → 환불 주문번호 자동 입력 ──────
+    function selectLogItem(el, orderNo) {
+      // 선택 표시
+      document.querySelectorAll('.log-item').forEach(i => i.classList.remove('selected'));
+      el.classList.add('selected');
+
+      // 환불 입력란 세팅 + 상태 초기화
+      document.getElementById('refund-orderno').value = orderNo;
+      clearRefundState();
+
+      // 패널 상단으로 스크롤
+      document.querySelector('.panel-center').scrollTo({ top: 0, behavior: 'smooth' });
+      showToast('📋 ' + orderNo + ' 선택됨 — 금액 조회 후 환불 가능');
     }
 
-    // default2 표시
-    function showD2() {
-      document.getElementById('sess-default2').style.display = 'block';
-    }
-
-    // ── 환불 조회 (데모) ──────────────────────────
-    function lookupOrder() {
-      const no = document.getElementById('refund-orderno').value.trim();
-      if (!no) return showToast('⚠ 주문번호를 입력하세요.');
-      document.getElementById('refund-max').textContent = '/ 24,000 원';
-      showToast('🔍 ' + no + ' 조회 완료');
-    }
-
-    function processRefund() {
-      const no  = document.getElementById('refund-orderno').value.trim();
-      const amt = document.getElementById('refund-amount').value.trim();
-      if (!no || !amt) return showToast('⚠ 주문번호와 금액을 입력하세요.');
-      addLogRow(no, '환불 처리', -parseInt(amt.replace(/,/g, '')));
+    // ── 환불 입력 초기화 ──────────────────────────
+    function clearRefundInput() {
       document.getElementById('refund-orderno').value = '';
+      clearRefundState();
+      document.querySelectorAll('.log-item').forEach(i => i.classList.remove('selected'));
+    }
+
+    function clearRefundState() {
       document.getElementById('refund-amount').value  = '';
       document.getElementById('refund-max').textContent = '/ — 원';
-      showToast('↩ ' + no + ' 환불 처리 완료');
+      document.getElementById('refund-error').textContent = '';
+      document.getElementById('refund-btn').disabled = true;
+      delete document.getElementById('refund-btn').dataset.maxAmount;
+    }
+
+    // ── 환불 금액 조회 ─────────────────────────
+    async function lookupRefund() {
+      const no = document.getElementById('refund-orderno').value.trim();
+      if (!no) return showToast('⚠ 주문번호를 입력하세요.');
+
+      try {
+        const res  = await fetch('/api/admin/refund/lookup?orderNo=' + encodeURIComponent(no));
+        const data = await res.json();
+
+        if (!res.ok) {
+          showToast('⚠ ' + (data.error || '조회 실패'));
+          return;
+        }
+
+        const fmt = data.paidAmount.toLocaleString();
+        document.getElementById('refund-max').textContent = '/ ' + fmt + ' 원';
+        document.getElementById('refund-btn').dataset.maxAmount = data.paidAmount;
+        document.getElementById('refund-btn').disabled = false;
+        document.getElementById('refund-error').textContent = '';
+        showToast('🔍 결제금액: ₩' + fmt);
+      } catch (e) {
+        showToast('⚠ 조회 중 오류가 발생했습니다.');
+      }
+    }
+
+    // ── 금액 입력 시 실시간 유효성 검사 ────────
+    function validateRefundAmount() {
+      const max = parseInt(document.getElementById('refund-btn').dataset.maxAmount || '0');
+      const amt = parseInt(document.getElementById('refund-amount').value) || 0;
+      const err = document.getElementById('refund-error');
+
+      if (!max) {
+        err.textContent = '먼저 금액 조회를 해주세요.';
+        document.getElementById('refund-btn').disabled = true;
+      } else if (amt <= 0) {
+        err.textContent = '금액은 0보다 커야 합니다.';
+        document.getElementById('refund-btn').disabled = true;
+      } else if (amt > max) {
+        err.textContent = `최대 환불 금액(₩${max.toLocaleString()})을 초과했습니다.`;
+        document.getElementById('refund-btn').disabled = true;
+      } else {
+        err.textContent = '';
+        document.getElementById('refund-btn').disabled = false;
+      }
+    }
+
+    // ── 환불 실행 ──────────────────────────────
+    async function processRefund() {
+      const no  = document.getElementById('refund-orderno').value.trim();
+      const amt = parseInt(document.getElementById('refund-amount').value) || 0;
+      const max = parseInt(document.getElementById('refund-btn').dataset.maxAmount || '0');
+
+      if (!no || amt <= 0) return showToast('⚠ 주문번호와 금액을 확인하세요.');
+      if (amt > max)       return showToast('⚠ 최대 환불 금액을 초과합니다.');
+
+      document.getElementById('refund-btn').disabled = true;
+
+      try {
+        const res  = await fetch('/api/admin/refund', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderNo: no, cancelAmount: amt, cancelReason: '관리자 환불' })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showToast('⚠ ' + (data.error || '환불 실패'));
+          document.getElementById('refund-btn').disabled = false;
+          return;
+        }
+
+        addLogRow(no, '환불 처리', -amt);
+
+        // 세션카드 즉시 제거
+        const uuid = document.getElementById('refund-btn').dataset.sessionUuid;
+        if (uuid) removeSessionCard(uuid, true);
+
+        clearRefundState();
+        document.getElementById('refund-orderno').value = '';
+        showToast('↩ ' + no + ' 환불 완료 (₩' + amt.toLocaleString() + ')');
+      } catch (e) {
+        showToast('⚠ 환불 처리 중 오류가 발생했습니다.');
+        document.getElementById('refund-btn').disabled = false;
+      }
+    }
+
+    // ── 재고 로드 (DB → Redis 기준) ────────────
+    let stockProductIds = [];  // 순서 보존용
+
+    async function loadStock() {
+      try {
+        const res    = await fetch('/api/admin/stock');
+        const stocks = await res.json();
+        const tbody  = document.getElementById('stock-tbody');
+        tbody.innerHTML = '';
+        stockProductIds = [];
+
+        stocks.forEach(s => {
+          stockProductIds.push(s.productId);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${s.name}</td>
+            <td class="${s.quantity <= 0 ? 'stock-zero' : ''}" id="stock-${s.productId}">${s.quantity}</td>
+            <td><input class="stock-adj-input" id="adj-${s.productId}" placeholder="±0" type="number" /></td>`;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        console.error('[Stock] 재고 로드 실패', e);
+      }
     }
 
     // ── 재고 조정 ──────────────────────────────
-    function adjustStock() {
-      [1,2,3].forEach(i => {
-        const adj = parseInt(document.getElementById('adj-' + i).value) || 0;
-        if (adj === 0) return;
-        const cell = document.getElementById('stock-' + i);
-        const cur  = parseInt(cell.textContent) + adj;
-        cell.textContent = cur;
-        cell.className   = cur <= 0 ? 'stock-zero' : '';
-        document.getElementById('adj-' + i).value = '';
+    async function adjustStock() {
+      let successCount = 0;
+      const errors = [];
+
+      const promises = stockProductIds.map(async productId => {
+        const input = document.getElementById('adj-' + productId);
+        const delta = parseInt(input.value) || 0;
+        if (delta === 0) return;
+
+        const res  = await fetch('/api/admin/stock/' + productId, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ delta })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          const cell = document.getElementById('stock-' + productId);
+          cell.textContent = data.quantity;
+          cell.className   = data.quantity <= 0 ? 'stock-zero' : '';
+          input.value = '';
+          successCount++;
+        } else {
+          input.style.borderColor = 'var(--red)';
+          errors.push(data.error || '재고 조정 실패');
+        }
       });
-      showToast('✅ 재고가 업데이트되었습니다.');
+
+      await Promise.all(promises);
+
+      if (errors.length > 0) {
+        errors.forEach(msg => showToast('⚠ ' + msg));
+      } else if (successCount > 0) {
+        await loadStock();   // 전체 재조회로 화면 갱신
+        showToast('✅ 재고가 업데이트되었습니다.');
+      }
     }
 
-    // ── 전달 완료 ──────────────────────────────
-    function deliver(orderNo, btn) {
-      btn.disabled = true;
-      btn.textContent = '완료';
-      btn.style.color = 'var(--muted)';
-      const row = btn.closest('tr');
-      row.querySelector('.chip').className = 'chip chip-delivered';
-      row.querySelector('.chip').textContent = '전달 완료';
-      showToast('✅ ' + orderNo + ' 전달 완료 처리');
+    // ── 판매 로그 (DB 조회) ────────────────────
+    const STATUS_LABEL = { PAID:'결제완료', COOKING:'조리중', READY:'조리완료', DELIVERED:'수령완료', CANCELLED:'취소/환불' };
+
+    async function loadSalesLog() {
+      try {
+        const res  = await fetch('/api/admin/sales/log');
+        const logs = await res.json();
+        const list = document.getElementById('log-list');
+
+        if (logs.length === 0) {
+          list.innerHTML = '<div class="log-empty" style="padding:20px 12px;color:var(--muted);font-size:0.78rem;text-align:center">오늘 주문 이력이 없습니다.</div>';
+          return;
+        }
+
+        list.innerHTML = '';
+        logs.forEach(log => {
+          const isCancelled = log.status === 'CANCELLED';
+          const time = log.createdAt ? log.createdAt.substring(11, 16) : '--:--';
+          const div  = document.createElement('div');
+          div.className = 'log-item clickable';
+          div.dataset.orderNo = log.orderNo;
+          div.innerHTML = `
+            <span class="log-time">${time}</span>
+            <div class="log-body">
+              <div class="log-orderno">${log.orderNo}</div>
+              <div class="log-desc">${log.desc} · ${STATUS_LABEL[log.status] || log.status}</div>
+            </div>
+            <span class="log-amount${isCancelled ? ' log-refund' : ''}">
+              ${isCancelled ? '↩ 환불' : '₩' + log.totalPrice.toLocaleString()}
+            </span>`;
+          div.addEventListener('click', () => selectLogItem(div, log.orderNo));
+          list.appendChild(div);
+        });
+
+        document.getElementById('log-subtitle').textContent = `오늘 누적 ${logs.length}건`;
+      } catch (e) {
+        console.error('[SalesLog] 로드 실패', e);
+      }
     }
 
-    // ── 제조현황 row 추가 ──────────────────────
-    function addMfgRow(no, desc, chipCls, chipLabel, uuid = null) {
-      const tbody = document.getElementById('mfg-tbody');
-      const tr = document.createElement('tr');
-      const btn = (chipCls === 'chip-ready' && uuid)
-        ? `<button class="deliver-btn" onclick="confirmReceive('${uuid}','${no}',this)">수령</button>`
-        : '';
-      tr.innerHTML = `
-        <td class="mfg-order-no">${no}</td>
-        <td class="mfg-desc">${desc}</td>
-        <td><span class="chip ${chipCls}">${chipLabel}</span></td>
-        <td>${btn}</td>`;
-      tbody.prepend(tr);
-    }
-
-    // ── 로그 row 추가 ──────────────────────────
+    // ── SSE 이벤트 수신 시 로그 실시간 추가 ────
     function addLogRow(no, desc, amount) {
       const list = document.getElementById('log-list');
+      const empty = list.querySelector('.log-empty');
+      if (empty) empty.remove();
+
       const now  = new Date();
-      const time = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+      const time = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
       const div  = document.createElement('div');
-      div.className = 'log-item';
       const isRefund = amount < 0;
+      div.className = 'log-item clickable';
+      div.dataset.orderNo = no;
       div.innerHTML = `
         <span class="log-time">${time}</span>
         <div class="log-body">
@@ -1554,10 +1662,14 @@
           <div class="log-desc">${desc}</div>
         </div>
         <span class="log-amount${isRefund ? ' log-refund' : ''}">${isRefund ? '↩ 환불' : '₩' + Math.abs(amount).toLocaleString()}</span>`;
+      div.addEventListener('click', () => selectLogItem(div, no));
       list.prepend(div);
+
+      const count = list.querySelectorAll('.log-item').length;
+      document.getElementById('log-subtitle').textContent = `오늘 누적 ${count}건`;
     }
 
-    // ── Toast ──────────────────────────────────
+
     let toastTimer;
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -1568,6 +1680,12 @@
     }
 
     // ── 관리자 SSE 연결 (서버 브로드캐스트 수신) ──────────────
+    // SSE 연결 전에도 재고·로그를 즉시 표시
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStock();
+      loadSalesLog();
+    });
+
     (function initAdminSse() {
       // 탭 단위 식별자
       let adminKey = sessionStorage.getItem('admin_key');
@@ -1580,7 +1698,11 @@
 
       sse.addEventListener('ADMIN_CONNECTED', async () => {
         console.log('[AdminSSE] 연결 완료 — 스냅샷 로드');
-        // 연결 즉시 현재 진행중 주문 스냅샷 로드
+        // 재고 & 판매로그 초기 로드
+        loadStock();
+        loadSalesLog();
+
+        // 현재 진행중 주문 스냅샷
         try {
           const res = await fetch('/api/admin/sessions/snapshot');
           const orders = await res.json();
@@ -1588,10 +1710,6 @@
             ensureSessionCard(o.uuid);
             const uiStatus  = o.status === 'PAID' ? 'COOKING' : o.status;
             addSessionOrder(o.uuid, o.orderNo, o.desc, uiStatus);
-
-            const chipCls   = o.status === 'READY' ? 'chip-ready' : 'chip-cooking';
-            const chipLabel = o.status === 'READY' ? '조리 완료'  : '조리중';
-            addMfgRow(o.orderNo, o.desc, chipCls, chipLabel, o.uuid);
           });
           if (orders.length > 0) showToast(`📋 진행중 주문 ${orders.length}건 로드`);
         } catch(e) { console.error('스냅샷 로드 실패', e); }
@@ -1613,12 +1731,23 @@
 
       // 결제완료 → 세션 카드에 조리중 주문 행 추가 + history 로그
       sse.addEventListener('ORDER_COOKING', (e) => {
-        const { uuid, orderNo, desc, amount } = JSON.parse(e.data);
+        const { uuid, orderNo, desc, amount, stockUpdates } = JSON.parse(e.data);
         ensureSessionCard(uuid);
         addSessionOrder(uuid, orderNo, desc, 'COOKING');
-        addMfgRow(orderNo, desc, 'chip-cooking', '조리중');
-        // 실제 금액으로 history 추가
         addLogRow(orderNo, desc, parseInt(amount || '0'));
+
+        // 재고 즉시 차감 반영
+        if (stockUpdates) {
+          stockUpdates.forEach(({ productId, quantity }) => {
+            const cell = document.getElementById('stock-' + productId);
+            if (cell) {
+              const cur = Math.max(0, parseInt(cell.textContent) - quantity);
+              cell.textContent = cur;
+              cell.className   = cur <= 0 ? 'stock-zero' : '';
+            }
+          });
+        }
+
         showToast('👨‍🍳 조리 시작: ' + orderNo);
       });
 
@@ -1626,27 +1755,16 @@
       sse.addEventListener('ORDER_READY', (e) => {
         const { uuid, orderNo } = JSON.parse(e.data);
         markOrderReady(orderNo);
-        updateMfgRow(orderNo, 'chip-ready', '조리 완료');
         showToast('🍜 조리 완료: ' + orderNo);
       });
 
-      // 수령완료 → mfgRow 10초 후 제거 + 잔여 없으면 세션카드 제거
+      // 수령완료 → 잔여 없으면 세션카드 제거
       sse.addEventListener('ORDER_DELIVERED', (e) => {
         const { uuid, orderNo } = JSON.parse(e.data);
         markOrderDelivered(orderNo);
-        updateMfgRow(orderNo, 'chip-delivered', '수령 완료');
-
-        // 10초 후 제조현황 row 제거
-        setTimeout(() => removeMfgRow(orderNo), 10_000);
 
         // 해당 uuid의 진행중 주문 행이 전부 완료됐으면 세션카드 페이드
         setTimeout(() => {
-          const card = document.getElementById('sess-' + uuid);
-          if (!card) return;
-          const activeRows = card.querySelectorAll
-            ? 0  // 세션카드엔 주문 행이 없으므로 sorder 체크
-            : 0;
-          // sorder-* 중 해당 uuid 것 전부 delivered 상태인지 확인
           const allDone = [...document.querySelectorAll('[id^="sorder-"]')]
             .filter(el => el.dataset.uuid === uuid)
             .every(el => el.classList.contains('delivered'));
@@ -1679,11 +1797,15 @@
       if (!document.getElementById('sess-' + uuid)) addSessionCard(uuid);
     }
 
-    function removeSessionCard(uuid) {
+    function removeSessionCard(uuid, instant = false) {
       const card = document.getElementById('sess-' + uuid);
       if (card) {
-        card.style.opacity = '0.4';
-        setTimeout(() => card.remove(), 3000);
+        if (instant) {
+          card.remove();
+        } else {
+          card.style.opacity = '0.4';
+          setTimeout(() => card.remove(), 3000);
+        }
       }
     }
 

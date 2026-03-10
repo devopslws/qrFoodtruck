@@ -15,7 +15,8 @@ import com.example.orderService.message.inventory.manufacture.ManufacturePublish
 import com.example.orderService.payment.repository.PaymentRepository;
 import com.example.orderService.common.redis.SessionRedisManager;
 import com.example.orderService.common.sse.SseEmitterManager;
-
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -28,6 +29,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.view.RedirectView;
 
 /**
@@ -97,6 +99,7 @@ public class PaymentController {
 
     // ── 2. Toss 결제 성공 콜백 ────────────────────────────────
 
+    @Transactional
     @GetMapping("/payment/success")
     public RedirectView success(
             @RequestParam String paymentKey,
@@ -164,7 +167,7 @@ public class PaymentController {
         String desc = items.size() == 1
                 ? items.get(0).getProductName()
                 : items.get(0).getProductName() + " 외 " + (items.size() - 1) + "건";
-        adminNotifyPublisher.orderCooking(uuid, orderId, desc, String.valueOf(amount));
+        adminNotifyPublisher.orderCooking(uuid, orderId, desc, String.valueOf(amount), items);
 
         log.info("[Payment] 결제 완료: orderNo={}, amount={}", orderId, amount);
         return new RedirectView("/orderView?result=success&orderNo=" + orderId);
