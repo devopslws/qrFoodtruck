@@ -2,7 +2,7 @@
 
 > 회원가입 없이 QR 스캔만으로 주문 · 결제 · 조리 상태를 실시간으로 확인하는 푸드트럭 전용 주문 플랫폼
 http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/orderView
-> ![서비스 바로가기 QR](./resources/orderViiewQr.jpeg)
+> ![서비스 바로가기 QR](./resources/orderViewQr.jpeg)
 http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/admin
 > ![서비스 바로가기 QR](./resources/adminQr.jpeg)
 ---
