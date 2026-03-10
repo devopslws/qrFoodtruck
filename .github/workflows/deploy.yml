@@ -144,6 +144,7 @@ jobs:
             --query 'Reservations[0].Instances[0].PublicIpAddress' \
             --output text --region ${{ env.AWS_REGION }})
           echo "infra_public_ip=${PUBLIC_IP}" >> $GITHUB_OUTPUT
+          echo "alb_dns=$(get foodtruck-AlbDnsName)" >> $GITHUB_OUTPUT
 
       - name: Setup EC2 infra (docker-compose + init SQL)
         run: |
@@ -191,6 +192,7 @@ jobs:
           aws_region     = os.environ["AWS_REGION"]
           toss_client    = os.environ["TOSS_CLIENT_KEY"]
           toss_secret    = os.environ["TOSS_SECRET_KEY"]
+          alb_dns        = os.environ["ALB_DNS"]
 
           task = {
             "family": "foodtruck-order-task",
@@ -205,7 +207,7 @@ jobs:
                 "image": image,
                 "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
                 "environment": [
-                  {"name": "INVENTORY_SERVICE_URL",         "value": f"http://{infra_ip}:8081"},
+                  {"name": "INVENTORY_SERVICE_URL",         "value": f"http://{alb_dns}"},
                   {"name": "TOSS_CLIENT_KEY",               "value": toss_client},
                   {"name": "TOSS_SECRET_KEY",               "value": toss_secret},
                   {"name": "SPRING_PROFILES_ACTIVE",        "value": "prod"},
@@ -243,6 +245,7 @@ jobs:
           AWS_REGION:      ${{ env.AWS_REGION }}
           TOSS_CLIENT_KEY: ${{ secrets.TOSS_CLIENT_KEY }}
           TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+          ALB_DNS:         ${{ steps.infra.outputs.alb_dns }}
 
       - name: Submit order-service Task Definition
         id: order-task-arn
