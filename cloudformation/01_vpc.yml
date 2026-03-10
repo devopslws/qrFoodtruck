@@ -183,6 +183,10 @@ Resources:
           ToPort: 5672
           SourceSecurityGroupId: !Ref SgEcs
         - IpProtocol: tcp
+          FromPort: 8081
+          ToPort: 8081
+          SourceSecurityGroupId: !Ref SgEcs
+        - IpProtocol: tcp
           FromPort: 15672
           ToPort: 15672
           CidrIp: 0.0.0.0/0
