@@ -73,7 +73,7 @@ Resources:
           mkdir -p /opt/foodtruck/init-sql/order
           mkdir -p /opt/foodtruck/init-sql/inventory
 
-          # init SQL - GitHub에서 다운로드
+          # init SQL - down by Github
           curl -fsSL "${GitHubRawBaseUrl}/init-sql/order/01_schema.sql" \
             -o /opt/foodtruck/init-sql/order/01_schema.sql
           curl -fsSL "${GitHubRawBaseUrl}/init-sql/inventory/01_schema.sql" \
