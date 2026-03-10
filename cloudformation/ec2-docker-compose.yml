@@ -13,6 +13,14 @@ services:
       MYSQL_DATABASE: orderdb
       MYSQL_USER: order_user
       MYSQL_PASSWORD: order_pass
+    command:
+      - --performance_schema=OFF
+      - --innodb_buffer_pool_size=64M
+      - --innodb_log_buffer_size=8M
+      - --max_connections=20
+      - --key_buffer_size=8M
+      - --tmp_table_size=16M
+      - --max_heap_table_size=16M
     volumes:
       - ./init-sql/order:/docker-entrypoint-initdb.d
     healthcheck:
@@ -37,6 +45,14 @@ services:
       MYSQL_DATABASE: inventorydb
       MYSQL_USER: inventory_user
       MYSQL_PASSWORD: inventory_pass
+    command:
+      - --performance_schema=OFF
+      - --innodb_buffer_pool_size=64M
+      - --innodb_log_buffer_size=8M
+      - --max_connections=20
+      - --key_buffer_size=8M
+      - --tmp_table_size=16M
+      - --max_heap_table_size=16M
     volumes:
       - ./init-sql/inventory:/docker-entrypoint-initdb.d
     healthcheck:
@@ -56,7 +72,7 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
-    command: redis-server --requirepass redis123
+    command: redis-server --requirepass redis123 --maxmemory 64mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
       interval: 10s
@@ -78,6 +94,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: 0.2
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
       interval: 15s

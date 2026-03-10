@@ -63,12 +63,22 @@ Resources:
           systemctl enable docker
           systemctl start docker
           usermod -aG docker ec2-user
+
           COMPOSE_VERSION=v2.27.0
           mkdir -p /usr/local/lib/docker/cli-plugins
           curl -SL "https://github.com/docker/compose/releases/download/${!COMPOSE_VERSION}/docker-compose-linux-x86_64" \
             -o /usr/local/lib/docker/cli-plugins/docker-compose
           chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-          mkdir -p /opt/foodtruck
+
+          mkdir -p /opt/foodtruck/init-sql/order
+          mkdir -p /opt/foodtruck/init-sql/inventory
+
+          # init SQL - GitHub에서 다운로드
+          curl -fsSL "${GitHubRawBaseUrl}/init-sql/order/01_schema.sql" \
+            -o /opt/foodtruck/init-sql/order/01_schema.sql
+          curl -fsSL "${GitHubRawBaseUrl}/init-sql/inventory/01_schema.sql" \
+            -o /opt/foodtruck/init-sql/inventory/01_schema.sql
+
           cd /opt/foodtruck
           cat > docker-compose.yml << 'COMPOSE'
           version: '3.8'
@@ -83,10 +93,18 @@ Resources:
                 MYSQL_DATABASE: orderdb
                 MYSQL_USER: order_user
                 MYSQL_PASSWORD: order_pass
-                MYSQL_INNODB_BUFFER_POOL_SIZE: 128M
-              command: --innodb-buffer-pool-size=128M --performance-schema=OFF --max-connections=50
-              mem_limit: 256m
-              restart: always
+              command:
+                - --performance_schema=OFF
+                - --innodb_buffer_pool_size=64M
+                - --innodb_log_buffer_size=8M
+                - --max_connections=20
+                - --key_buffer_size=8M
+                - --tmp_table_size=16M
+                - --max_heap_table_size=16M
+              volumes:
+                - ./init-sql/order:/docker-entrypoint-initdb.d
+              mem_limit: 200m
+              restart: unless-stopped
             inventory-db:
               image: mysql:8.0
               container_name: inventory-db
@@ -97,10 +115,18 @@ Resources:
                 MYSQL_DATABASE: inventorydb
                 MYSQL_USER: inventory_user
                 MYSQL_PASSWORD: inventory_pass
-                MYSQL_INNODB_BUFFER_POOL_SIZE: 128M
-              command: --innodb-buffer-pool-size=128M --performance-schema=OFF --max-connections=50
-              mem_limit: 256m
-              restart: always
+              command:
+                - --performance_schema=OFF
+                - --innodb_buffer_pool_size=64M
+                - --innodb_log_buffer_size=8M
+                - --max_connections=20
+                - --key_buffer_size=8M
+                - --tmp_table_size=16M
+                - --max_heap_table_size=16M
+              volumes:
+                - ./init-sql/inventory:/docker-entrypoint-initdb.d
+              mem_limit: 200m
+              restart: unless-stopped
             redis:
               image: redis:7.2-alpine
               container_name: redis
@@ -108,7 +134,7 @@ Resources:
                 - "6379:6379"
               command: redis-server --requirepass redis123 --maxmemory 64mb --maxmemory-policy allkeys-lru
               mem_limit: 96m
-              restart: always
+              restart: unless-stopped
             rabbitmq:
               image: rabbitmq:3.13-management-alpine
               container_name: rabbitmq
@@ -118,8 +144,9 @@ Resources:
               environment:
                 RABBITMQ_DEFAULT_USER: admin
                 RABBITMQ_DEFAULT_PASS: admin123
+                RABBITMQ_VM_MEMORY_HIGH_WATERMARK: "0.2"
               mem_limit: 256m
-              restart: always
+              restart: unless-stopped
           COMPOSE
           docker compose up -d
 
