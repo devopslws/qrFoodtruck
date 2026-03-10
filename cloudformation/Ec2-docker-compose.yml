@@ -1,0 +1,92 @@
+services:
+
+  # ──────────────────────────────────────────
+  # DATABASE — Order DB (MySQL)
+  # ──────────────────────────────────────────
+  order-db:
+    image: mysql:8.0
+    container_name: order-db
+    ports:
+      - "3316:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: orderdb
+      MYSQL_USER: order_user
+      MYSQL_PASSWORD: order_pass
+    volumes:
+      - ./init-sql/order:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - msa-network
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────
+  # DATABASE — Inventory DB (MySQL)
+  # ──────────────────────────────────────────
+  inventory-db:
+    image: mysql:8.0
+    container_name: inventory-db
+    ports:
+      - "3317:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: inventorydb
+      MYSQL_USER: inventory_user
+      MYSQL_PASSWORD: inventory_pass
+    volumes:
+      - ./init-sql/inventory:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - msa-network
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────
+  # REDIS
+  # ──────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass redis123
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - msa-network
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────
+  # RABBITMQ
+  # ──────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - msa-network
+    restart: unless-stopped
+
+networks:
+  msa-network:
+    driver: bridge

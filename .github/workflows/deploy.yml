@@ -139,6 +139,44 @@ jobs:
           echo "sg_ecs=$(get foodtruck-SgEcsId)" >> $GITHUB_OUTPUT
           echo "order_log=$(get foodtruck-OrderLogGroupName)" >> $GITHUB_OUTPUT
           echo "inventory_log=$(get foodtruck-InventoryLogGroupName)" >> $GITHUB_OUTPUT
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --instance-ids $INSTANCE_ID \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text --region ${{ env.AWS_REGION }})
+          echo "infra_public_ip=${PUBLIC_IP}" >> $GITHUB_OUTPUT
+
+      - name: Setup EC2 infra (docker-compose + init SQL)
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/ec2-key.pem
+          chmod 600 /tmp/ec2-key.pem
+          EC2=${{ steps.infra.outputs.infra_public_ip }}
+
+          ssh -o StrictHostKeyChecking=no -i /tmp/ec2-key.pem ec2-user@$EC2 \
+            "mkdir -p ~/infra/init-sql/order ~/infra/init-sql/inventory"
+
+          scp -o StrictHostKeyChecking=no -i /tmp/ec2-key.pem \
+            cloudformation/ec2-docker-compose.yml \
+            ec2-user@$EC2:~/infra/docker-compose.yml
+
+          scp -o StrictHostKeyChecking=no -i /tmp/ec2-key.pem \
+            init-sql/order/01_schema.sql \
+            ec2-user@$EC2:~/infra/init-sql/order/01_schema.sql
+
+          scp -o StrictHostKeyChecking=no -i /tmp/ec2-key.pem \
+            init-sql/inventory/01_schema.sql \
+            ec2-user@$EC2:~/infra/init-sql/inventory/01_schema.sql
+
+          ssh -o StrictHostKeyChecking=no -i /tmp/ec2-key.pem ec2-user@$EC2 << 'ENDSSH'
+            cd ~/infra
+            docker compose down --remove-orphans 2>/dev/null || true
+            docker compose up -d
+            echo "Waiting for MySQL to be ready..."
+            sleep 20
+            docker compose ps
+          ENDSSH
+
+          rm -f /tmp/ec2-key.pem
+
 
       - name: Register order-service Task Definition
         id: order-task
