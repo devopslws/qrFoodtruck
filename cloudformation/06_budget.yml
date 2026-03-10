@@ -1,7 +1,3 @@
-#목적: AWS budget 지정 예산 초과시 ECS를 내린다.
-#     SSM parameter에 수행이력을 저장, 월 1회만 작동한다(무한 강제종료 방지)
-#     연락처는 githubActions에 보관
-
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Budget guard - notify and stop ECS on budget exceeded.
 
@@ -30,8 +26,10 @@ Resources:
       Subscriptions:
         - Protocol: email
           Endpoint: !Ref NotificationEmail
-        - Protocol: sms
-          Endpoint: !Ref NotificationPhoneNumber
+        # [FIX 1] SNS SMS는 ap-northeast-2(서울) 리전 미지원
+        #         us-east-1 크로스 리전 토픽으로 분리하거나 제거해야 함
+        #         → 우선 SMS 구독을 제거하고 이메일만 유지
+        #         SMS가 꼭 필요하면 us-east-1에 별도 스택으로 분리 필요
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -41,7 +39,9 @@ Resources:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Principal: {Service: lambda.amazonaws.com}
+            # [FIX 4] Principal 인라인 맵({Service: ...}) → 블록 스타일로 변경
+            Principal:
+              Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
@@ -51,16 +51,23 @@ Resources:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: [ecs:UpdateService, ecs:DescribeServices, ecs:ListServices]
+                Action:
+                  - ecs:UpdateService
+                  - ecs:DescribeServices
+                  - ecs:ListServices
                 Resource: "*"
               - Effect: Allow
-                Action: [ssm:GetParameter, ssm:PutParameter]
+                Action:
+                  - ssm:GetParameter
+                  - ssm:PutParameter
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/*"
               - Effect: Allow
                 Action: sns:Publish
                 Resource: !Ref BudgetAlertTopic
               - Effect: Allow
-                Action: [events:EnableRule, events:DisableRule]
+                Action:
+                  - events:EnableRule
+                  - events:DisableRule
                 Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-budget-check-schedule"
               - Effect: Allow
                 Action: ce:GetCostAndUsage
@@ -116,8 +123,10 @@ Resources:
     Properties:
       Name: !Sub "${AWS::StackName}-ecs-state-change"
       EventPattern:
-        source: [aws.ecs]
-        detail-type: [ECS Task State Change]
+        source:
+          - aws.ecs
+        detail-type:
+          - ECS Task State Change
         detail:
           clusterArn:
             - !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ECSClusterName}"
@@ -138,7 +147,9 @@ Resources:
         Variables:
           ECS_CLUSTER: !Ref ECSClusterName
           ECS_SERVICES: !Ref ECSServiceNames
-          MONTHLY_BUDGET_USD: !Ref MonthlyBudgetUSD
+          # [FIX 3] Number 타입 파라미터를 Lambda 환경변수(String only)에 직접 !Ref 하면
+          #         Early Validation 타입 불일치 오류 발생 → !Sub 로 문자열 변환
+          MONTHLY_BUDGET_USD: !Sub "${MonthlyBudgetUSD}"
           SNS_TOPIC_ARN: !Ref BudgetAlertTopic
           SSM_PREFIX: !Sub "/${AWS::StackName}"
       Code:
