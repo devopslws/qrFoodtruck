@@ -4,11 +4,11 @@
 > </br></br>
 > [고객 주문 화면: mobile 권장]</br>
 > http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/orderView
-> > ![서비스 바로가기 QR](.\resources\orderViewQr.jpeg)
+> > ![서비스 바로가기 QR](./resources/orderViewQr.jpeg)
 > 
 > > [주문관리 화면: pc 권장]</br>
 http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/admin
-> ![서비스 바로가기 QR](.\resources\adminQr.jpeg)
+> ![서비스 바로가기 QR](./resources/adminQr.jpeg)
 
 ---
 
