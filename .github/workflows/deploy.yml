@@ -325,11 +325,29 @@ jobs:
             --output text --region ${{ env.AWS_REGION }})
           echo "arn=${TASK_ARN}" >> $GITHUB_OUTPUT
 
+      - name: Wait for services to finish draining
+        run: |
+          CLUSTER=${{ steps.infra.outputs.cluster }}
+          for SERVICE in ${{ env.PROJECT_NAME }}-order-service ${{ env.PROJECT_NAME }}-inventory-service; do
+            echo "Waiting for $SERVICE to finish draining..."
+            for i in $(seq 1 20); do
+              STATUS=$(aws ecs describe-services \
+                --cluster $CLUSTER --services $SERVICE \
+                --query 'services[0].status' \
+                --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "NONE")
+              echo "$SERVICE status: $STATUS"
+              if [ "$STATUS" = "ACTIVE" ] || [ "$STATUS" = "NONE" ] || [ "$STATUS" = "INACTIVE" ]; then
+                break
+              fi
+              sleep 15
+            done
+          done
+
       - name: Create or Update order-service ECS Service
         run: |
           CLUSTER=${{ steps.infra.outputs.cluster }}
           SERVICE=${{ env.PROJECT_NAME }}-order-service
-          NETWORK_CONFIG="awsvpcConfiguration={subnets=[${{ steps.infra.outputs.subnet1 }},${{ steps.infra.outputs.subnet2 }}],securityGroups=[${{ steps.infra.outputs.sg_ecs }}],assignPublicIp=DISABLED}"
+          NETWORK_CONFIG="awsvpcConfiguration={subnets=[${{ steps.infra.outputs.subnet1 }},${{ steps.infra.outputs.subnet2 }}],securityGroups=[${{ steps.infra.outputs.sg_ecs }}],assignPublicIp=ENABLED}"
 
           STATUS=$(aws ecs describe-services \
             --cluster $CLUSTER --services $SERVICE \
@@ -358,7 +376,7 @@ jobs:
         run: |
           CLUSTER=${{ steps.infra.outputs.cluster }}
           SERVICE=${{ env.PROJECT_NAME }}-inventory-service
-          NETWORK_CONFIG="awsvpcConfiguration={subnets=[${{ steps.infra.outputs.subnet1 }},${{ steps.infra.outputs.subnet2 }}],securityGroups=[${{ steps.infra.outputs.sg_ecs }}],assignPublicIp=DISABLED}"
+          NETWORK_CONFIG="awsvpcConfiguration={subnets=[${{ steps.infra.outputs.subnet1 }},${{ steps.infra.outputs.subnet2 }}],securityGroups=[${{ steps.infra.outputs.sg_ecs }}],assignPublicIp=ENABLED}"
 
           STATUS=$(aws ecs describe-services \
             --cluster $CLUSTER --services $SERVICE \
