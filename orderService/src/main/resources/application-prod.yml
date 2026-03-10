@@ -1,3 +1,9 @@
+server:
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3316/orderdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8}
