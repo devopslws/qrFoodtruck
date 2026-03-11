@@ -23,7 +23,7 @@
           --red: #b91c1c;
           --red-bg: #fef2f2;
           --yellow-bg: #fffbeb;
-          --sidebar-w: 160px;
+          --sidebar-w: 200px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -814,14 +814,20 @@
     <div class="sidebar-logo">🚚 FOOD TRUCK<span>Admin Console</span></div>
     <nav class="nav-group">
         <div class="nav-group-label">메뉴</div>
-        <div class="nav-item active" onclick="switchPage('order', this)">
+        <div class="nav-item active" id="nav-order" onclick="switchPage('order', this)">
             <span>📋</span> 주문관리
         </div>
-        <div class="nav-item" onclick="switchPage('docs', this)">
-            <span>📖</span> 구조 해설
+        <div class="nav-item" id="nav-docs" onclick="switchPage('docs', this)">
+            <span>📖</span> 개발 일지
         </div>
-        <div class="nav-sub active" id="docs-sub-1" style="display:none">2-1. 데이터 스키마</div>
-        <div class="nav-sub"        id="docs-sub-2" style="display:none">2-2. 배포환경 구성</div>
+        <div id="docs-subnav" style="display:none">
+            <div class="nav-sub active" id="sub-scenario" onclick="switchDoc('scenario', this)">① 테스트 시나리오</div>
+            <div class="nav-sub"        id="sub-arch"      onclick="switchDoc('arch',     this)">② 시스템 아키텍처</div>
+            <div class="nav-sub"        id="sub-schema"    onclick="switchDoc('schema',   this)">③ 데이터 스키마</div>
+            <div class="nav-sub"        id="sub-deploy"    onclick="switchDoc('deploy',   this)">④ 배포환경 구성</div>
+            <div class="nav-sub"        id="sub-cicd"      onclick="switchDoc('cicd',     this)">⑤ CI/CD 파이프라인</div>
+            <div class="nav-sub"        id="sub-trouble"   onclick="switchDoc('trouble',  this)">⑥ 트러블슈팅</div>
+        </div>
     </nav>
 </aside>
 
@@ -921,77 +927,252 @@
                     로딩 중...
                 </div>
             </div>
+
         </div>
     </div>
 
 
     <!-- ════════════════════════════════
-         PAGE 2: 구조 해설
+         PAGE 2: 개발 일지
     ════════════════════════════════ -->
     <div class="page" id="page-docs">
-        <div class="docs-tabs">
-            <div class="docs-tab active" onclick="switchDoc('arch', this)">2-1. 시스템 아키텍처</div>
-            <div class="docs-tab" onclick="switchDoc('schema', this)">2-2. 데이터 스키마</div>
-            <div class="docs-tab" onclick="switchDoc('deploy', this)">2-3. 배포환경 구성</div>
-            <div class="docs-tab" onclick="switchDoc('cicd', this)">2-4. CI/CD 파이프라인</div>
-            <div class="docs-tab" onclick="switchDoc('progress', this)">2-5. 진행 현황</div>
-        </div>
 
-        <!-- 2-1. 아키텍처 -->
-        <div class="doc-page active" id="doc-arch">
+        <!-- ① 테스트 시나리오 -->
+        <div class="doc-page active" id="doc-scenario">
+            <!-- 🧪 테스트 시나리오 -->
+            <div class="doc-section">
+                <div class="doc-h2">🧪 테스트 시나리오</div>
+                <div class="doc-desc">아래 시나리오를 순서대로 따라하면 핵심 기능을 한 번에 검증할 수 있습니다.</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+
+                    <details style="background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+                        <summary style="padding:11px 14px;cursor:pointer;font-weight:700;font-size:0.78rem;list-style:none;display:flex;justify-content:space-between;align-items:center">
+                            <span>SCENARIO 1 <span style="color:var(--muted);font-weight:400;font-size:0.72rem;margin-left:8px">동시 주문 · 보상 트랜잭션</span></span>
+                            <span style="font-size:0.65rem;color:var(--accent);font-weight:700;background:#fff4ee;padding:2px 8px;border-radius:10px;border:1px solid #f5c9b0">핵심</span>
+                        </summary>
+                        <div style="padding:12px 14px 14px;border-top:1px solid var(--border);line-height:1.8;font-size:0.78rem">
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 목적</div>
+                            <div style="margin-bottom:10px">Redis 원자적 재고 선차감 + 결제 실패 시 보상 트랜잭션 확인</div>
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 준비</div>
+                            <div style="font-family:'Space Mono',monospace;font-size:0.68rem;background:var(--surface2);padding:8px 10px;border-radius:5px;line-height:1.9;margin-bottom:10px">
+                                탭 A · 탭 B : /orderView &nbsp;(탭 B는 시크릿 탭 — 별도 uuid)<br>
+                                탭 C : /admin
+                            </div>
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 실행 순서</div>
+                            <div style="font-family:'Space Mono',monospace;font-size:0.68rem;background:var(--surface2);padding:8px 10px;border-radius:5px;line-height:1.9;margin-bottom:10px">
+                                1. 탭 C → 재고 "한정판 세트" +2 조정 (기본 1 → 총 3개)<br>
+                                2. 탭 A: 한정판 세트 2개 담기 → 결제 진행<br>
+                                3. 탭 B: 동시에 한정판 세트 2개 담기 → 결제 진행
+                            </div>
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 기대 결과</div>
+                            <div style="font-size:0.72rem;line-height:2">
+                                ✅ 서버 수신 순서 기준 먼저 온 쪽만 재고 점유<br>
+                                ✅ 늦은 쪽: releaseStock() → Redis 재고 복구<br>
+                                ✅ 늦은 쪽: DB CANCELLED · 고객 화면 실패 배너<br>
+                                ✅ 탭 C 재고 수치 즉시 차감 반영
+                            </div>
+                        </div>
+                    </details>
+
+                    <details style="background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+                        <summary style="padding:11px 14px;cursor:pointer;font-weight:700;font-size:0.78rem;list-style:none;display:flex;justify-content:space-between;align-items:center">
+                            <span>SCENARIO 2 <span style="color:var(--muted);font-weight:400;font-size:0.72rem;margin-left:8px">admin 브로드캐스트 · 수평확장</span></span>
+                        </summary>
+                        <div style="padding:12px 14px 14px;border-top:1px solid var(--border);line-height:1.8;font-size:0.78rem">
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 목적</div>
+                            <div style="margin-bottom:10px">Fanout Exchange → 다수 admin 화면 동기화 + 수평확장 구조 확인</div>
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 준비 및 실행</div>
+                            <div style="font-family:'Space Mono',monospace;font-size:0.68rem;background:var(--surface2);padding:8px 10px;border-radius:5px;line-height:1.9;margin-bottom:10px">
+                                탭 A · 탭 B : /orderView<br>
+                                탭 C · 탭 D : /admin (2개 동시 열기)<br>
+                                탭 A · B 순서대로 주문 진행
+                            </div>
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 기대 결과</div>
+                            <div style="font-size:0.72rem;line-height:2">
+                                ✅ 탭 C · D 양쪽에 세션카드 동시 추가됨<br>
+                                ✅ admin.notify.exchange Fanout 정상 동작 확인<br>
+                                ✅ ECS Task 수평확장 시에도 동일 구조 유지
+                            </div>
+                        </div>
+                    </details>
+
+                    <details style="background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+                        <summary style="padding:11px 14px;cursor:pointer;font-weight:700;font-size:0.78rem;list-style:none;display:flex;justify-content:space-between;align-items:center">
+                            <span>SCENARIO 3 <span style="color:var(--muted);font-weight:400;font-size:0.72rem;margin-left:8px">세션 생명주기 · 추가 주문</span></span>
+                        </summary>
+                        <div style="padding:12px 14px 14px;border-top:1px solid var(--border);line-height:1.8;font-size:0.78rem">
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 목적</div>
+                            <div style="margin-bottom:10px">조리 대기 중 추가 주문 시 동일 SSE 연결 유지 확인</div>
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 실행 순서</div>
+                            <div style="font-family:'Space Mono',monospace;font-size:0.68rem;background:var(--surface2);padding:8px 10px;border-radius:5px;line-height:1.9;margin-bottom:10px">
+                                1. 짜장면 1개 주문 → COOKING_START 수신 확인<br>
+                                2. 조리 완료 전(7초 이내) 짬뽕 추가 주문<br>
+                                3. 두 번의 COOKING_DONE 수신 확인
+                            </div>
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 기대 결과</div>
+                            <div style="font-size:0.72rem;line-height:2">
+                                ✅ 추가 주문 시 SSE 재연결 없음 (동일 연결 유지)<br>
+                                ✅ Heartbeat 30초마다 Redis TTL 갱신<br>
+                                ✅ 모든 주문 수령 후 SSE 연결 종료
+                            </div>
+                        </div>
+                    </details>
+
+                    <details style="background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+                        <summary style="padding:11px 14px;cursor:pointer;font-weight:700;font-size:0.78rem;list-style:none;display:flex;justify-content:space-between;align-items:center">
+                            <span>SCENARIO 4 <span style="color:var(--muted);font-weight:400;font-size:0.72rem;margin-left:8px">수령 완료 · 세션 소멸</span></span>
+                        </summary>
+                        <div style="padding:12px 14px 14px;border-top:1px solid var(--border);line-height:1.8;font-size:0.78rem">
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 목적</div>
+                            <div style="margin-bottom:10px">수령 완료 이벤트 전파 및 양쪽 화면 세션 정리 확인</div>
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 실행 순서</div>
+                            <div style="font-family:'Space Mono',monospace;font-size:0.68rem;background:var(--surface2);padding:8px 10px;border-radius:5px;line-height:1.9;margin-bottom:10px">
+                                1. 고객: 주문 완료 → 조리완료(COOKING_DONE) 대기<br>
+                                2. 관리자: 세션카드의 '수령' 버튼 클릭
+                            </div>
+                            <div style="margin-bottom:6px;color:var(--accent2);font-weight:700;font-size:0.7rem">▸ 기대 결과</div>
+                            <div style="font-size:0.72rem;line-height:2">
+                                ✅ 고객 화면: 수령 완료 표시 → 10초 후 자동 초기화<br>
+                                ✅ admin: 세션카드 페이드아웃 후 제거<br>
+                                ✅ Redis 세션 TTL 만료 정리
+                            </div>
+                        </div>
+                    </details>
+
+                </div>
+            </div>
+
+            <!-- 프로그램 목적 & 의도 -->
+            <div class="doc-section">
+                <div class="doc-h2">이 프로젝트에 대해</div>
+                <div style="display:flex;flex-direction:column;gap:10px;font-size:0.78rem;line-height:1.8">
+                    <div style="background:var(--surface2);border-radius:8px;padding:14px 16px">
+                        <div style="font-weight:700;color:var(--accent2);margin-bottom:6px;font-size:0.72rem">🎯 만든 이유</div>
+                        <div style="color:var(--text)">팝업 푸드트럭 환경에서 회원 가입 없이 QR 하나로 주문부터 수령까지 끊김없이 처리하는 시스템이 필요했습니다. 동시에 Redis 재고 관리, RabbitMQ 비동기 통신, SSE 실시간 알림, MSA 구조 등 실제 트래픽이 발생하는 환경에서 각 기술이 어떻게 맞물려 동작하는지를 직접 구현하고 검증하기 위한 토이 프로젝트입니다.</div>
+                    </div>
+                    <div style="background:var(--surface2);border-radius:8px;padding:14px 16px">
+                        <div style="font-weight:700;color:var(--accent2);margin-bottom:6px;font-size:0.72rem">🔑 핵심 기술 검증 포인트</div>
+                        <div style="color:var(--text)">
+                            <span style="color:#dc382d;font-weight:700">Redis DECR 원자 연산</span> — 동시 주문에서 재고가 음수로 떨어지지 않는가<br>
+                            <span style="color:#ff6600;font-weight:700">보상 트랜잭션</span> — 결제 실패 시 선차감된 재고가 정확히 복구되는가<br>
+                            <span style="color:#4caf50;font-weight:700">SSE + Heartbeat</span> — 조리 완료 알림이 연결 끊김 없이 고객에게 전달되는가<br>
+                            <span style="color:#4a9eff;font-weight:700">Fanout 브로드캐스트</span> — ECS Task가 늘어도 모든 관리자 화면이 동기화되는가
+                        </div>
+                    </div>
+                    <div style="background:var(--surface2);border-radius:8px;padding:14px 16px">
+                        <div style="font-weight:700;color:var(--accent2);margin-bottom:6px;font-size:0.72rem">📌 의도적으로 단순화한 부분</div>
+                        <div style="color:var(--muted)">회원/인증 없음 (UUID 익명 세션) · 조리 시간 7초 자동 완성 · 기본 현금 고객 2명 상시 존재 · RDS/ElastiCache 대신 EC2 컨테이너 운영 (비용 절감)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ② 시스템 아키텍처 -->
+        <div class="doc-page" id="doc-arch">
             <div class="doc-section">
                 <div class="doc-h1">🚚 QR FoodTruck</div>
                 <div class="doc-desc">팝업 푸드트럭 전용 QR 주문 시스템. 회원가입 없이 QR 스캔만으로 주문·결제·조리 상태를 실시간 확인.</div>
             </div>
+
+            <!-- MonoRepo 구조 -->
             <div class="doc-section">
-                <div class="doc-h2">아키텍처 다이어그램</div>
-                <div class="arch-diagram">
-                    <span class="hl">[고객 브라우저]</span>  QR 접속 → /order  |  SSE 구독 (조리완료 알림)
-                    │
-                    ▼
-                    <span class="hl2">┌─────────────────────────────┐</span>   <span class="hl3">┌──────────────────────────────┐</span>
-                    <span class="hl2">│  Server A  — 주문 · 결제     │</span>   <span class="hl3">│  Server B  — 재고 · 제조      │</span>
-                    <span class="hl2">│  :8080                       │</span>   <span class="hl3">│  :8081                        │</span>
-                    <span class="hl2">│  ├ 주문 접수 / 상태 관리      │</span>   <span class="hl3">│  ├ 상품 재고 관리 (Write)      │</span>
-                    <span class="hl2">│  ├ Toss PG 연동               │</span>   <span class="hl3">│  ├ 조리 상태 관리              │</span>
-                    <span class="hl2">│  ├ Redis 재고 Read-Only        │</span>   <span class="hl3">│  ├ Redis 재고 Write 주체       │</span>
-                    <span class="hl2">│  └ SSE 이벤트 Push            │</span>   <span class="hl3">│  └ RabbitMQ 이벤트 발행        │</span>
-                    <span class="hl2">└──────────┬──────────────────┘</span>   <span class="hl3">└──────────────┬───────────────┘</span>
-                    │                                         │
-                    └──────────── <span class="hl">RabbitMQ</span> ─────────────────┘
-                    비동기 메시지
-                    │
-                    <span class="hl">┌──────────────────────────────┐</span>
-                    <span class="hl">│  Redis  — 공유 캐시           │</span>
-                    <span class="hl">│  재고 실시간 관리 · 세션 UUID  │</span>
-                    <span class="hl">└──────────────────────────────┘</span>
-                    <span class="dim">MySQL A (주문·결제)   MySQL B (상품·제조)   모두 Docker 컨테이너</span>
+                <div class="doc-h2">MonoRepo 구조</div>
+                <div style="font-size:0.75rem;display:flex;flex-direction:column;gap:8px">
+                    <div style="border:1.5px solid #4a9eff;border-radius:10px;padding:14px 16px;background:#0a0f1a">
+                        <div style="color:#4a9eff;font-weight:700;font-size:0.72rem;margin-bottom:12px">📦 foodtruck/ <span style="font-weight:400;color:var(--muted)">(단일 Git 저장소)</span></div>
+                        <div style="display:flex;gap:12px">
+                            <div style="flex:1;border:1px solid #4caf50;border-radius:8px;padding:10px 12px;background:#0d1f12">
+                                <div style="color:#4caf50;font-weight:700;margin-bottom:6px;font-size:0.72rem">🟢 order-service</div>
+                                <div style="color:var(--muted);font-size:0.65rem;line-height:1.8">주문 접수 · 상태 관리<br>Toss PG 연동<br>Redis 재고 Read-Only<br>SSE 이벤트 Push<br><span style="color:#4a9eff">RestClient → inventory</span></div>
+                                <div style="margin-top:8px;background:#0a0a0a;border-radius:4px;padding:4px 8px;font-size:0.63rem;color:var(--muted)">build.gradle · Dockerfile<br>application-{local·prod}.yml</div>
+                            </div>
+                            <div style="flex:1;border:1px solid #ab47bc;border-radius:8px;padding:10px 12px;background:#1a0d1f">
+                                <div style="color:#ab47bc;font-weight:700;margin-bottom:6px;font-size:0.72rem">🟣 inventory-service</div>
+                                <div style="color:var(--muted);font-size:0.65rem;line-height:1.8">상품 재고 관리 (Write)<br>조리 상태 관리<br>Redis 재고 Write 주체<br>RabbitMQ 이벤트 발행<br><span style="color:#ab47bc">Cloud Map DNS 등록</span></div>
+                                <div style="margin-top:8px;background:#0a0a0a;border-radius:4px;padding:4px 8px;font-size:0.63rem;color:var(--muted)">build.gradle · Dockerfile<br>application-{local·prod}.yml</div>
+                            </div>
+                        </div>
+                        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                            <div style="background:#0a0a0a;border:1px solid #333;border-radius:6px;padding:6px 10px;font-size:0.63rem;color:var(--muted)">📄 docker-compose.yml<br><span style="color:#555">로컬 인프라 일괄 기동</span></div>
+                            <div style="background:#0a0a0a;border:1px solid #333;border-radius:6px;padding:6px 10px;font-size:0.63rem;color:var(--muted)">☁️ cloudformation/<br><span style="color:#555">01_vpc ~ 04_ecs</span></div>
+                            <div style="background:#0a0a0a;border:1px solid #333;border-radius:6px;padding:6px 10px;font-size:0.63rem;color:var(--muted)">🔄 .github/workflows/<br><span style="color:#555">deploy.yml (CI/CD)</span></div>
+                        </div>
+                    </div>
+                    <div style="background:var(--surface2);border-radius:6px;padding:8px 14px;font-size:0.68rem;color:var(--muted)">
+                        <span style="color:var(--accent2);font-weight:700">root build.gradle</span> — Spring Boot 3.3 · Java 17 공통 설정. 각 서브모듈은 추가 의존성만 선언 (Lombok · JPA · Redis · RabbitMQ · QueryDSL)
+                    </div>
                 </div>
             </div>
+
+            <!-- 서비스 간 통신 흐름 -->
+            <div class="doc-section">
+                <div class="doc-h2">서비스 간 통신 흐름</div>
+                <div style="font-size:0.75rem;display:flex;flex-direction:column;gap:8px">
+
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <div style="background:#1a1a2e;border:1px solid #4a9eff;border-radius:6px;padding:5px 10px;color:#4a9eff;font-weight:700;font-size:0.68rem;white-space:nowrap">👤 고객</div>
+                        <div style="flex:1;border-top:1.5px dashed #4a9eff;position:relative"><span style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:0.58rem;color:#4a9eff;white-space:nowrap;background:var(--surface);padding:0 3px">HTTP · SSE 구독</span></div>
+                        <div style="background:#0d1f12;border:1px solid #4caf50;border-radius:6px;padding:5px 10px;color:#4caf50;font-weight:700;font-size:0.68rem;white-space:nowrap">🟢 order-service</div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <div style="background:#0d1f12;border:1px solid #4caf50;border-radius:6px;padding:5px 10px;color:#4caf50;font-weight:700;font-size:0.68rem;white-space:nowrap">🟢 order-service</div>
+                        <div style="flex:1;border-top:1.5px solid #4a9eff;position:relative"><span style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:0.58rem;color:#4a9eff;white-space:nowrap;background:var(--surface);padding:0 3px">RestClient / HTTP · Cloud Map DNS</span></div>
+                        <div style="background:#1a0d1f;border:1px solid #ab47bc;border-radius:6px;padding:5px 10px;color:#ab47bc;font-weight:700;font-size:0.68rem;white-space:nowrap">🟣 inventory-service</div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <div style="background:#0d1f12;border:1px solid #4caf50;border-radius:6px;padding:5px 10px;color:#4caf50;font-weight:700;font-size:0.68rem;white-space:nowrap">🟢 order-service</div>
+                        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
+                            <div style="width:100%;border-top:1.5px solid #ff6600;position:relative"><span style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:0.58rem;color:#ff6600;white-space:nowrap;background:var(--surface);padding:0 3px">manufacture.queue →</span></div>
+                            <div style="background:#1a1208;border:1px solid #ff6600;border-radius:5px;padding:3px 8px;font-size:0.63rem;color:#ff6600;font-weight:700;margin:2px 0">🐇 RabbitMQ</div>
+                            <div style="width:100%;border-top:1.5px solid #ff6600;position:relative"><span style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:0.58rem;color:#ff6600;white-space:nowrap;background:var(--surface);padding:0 3px">← cooking.done.queue</span></div>
+                        </div>
+                        <div style="background:#1a0d1f;border:1px solid #ab47bc;border-radius:6px;padding:5px 10px;color:#ab47bc;font-weight:700;font-size:0.68rem;white-space:nowrap">🟣 inventory-service</div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <div style="background:#1a1a2e;border:1px solid #4a9eff;border-radius:6px;padding:5px 10px;color:#4a9eff;font-weight:700;font-size:0.68rem;white-space:nowrap">🖥 관리자</div>
+                        <div style="flex:1;border-top:1.5px dashed #ff6600;position:relative"><span style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:0.58rem;color:#ff6600;white-space:nowrap;background:var(--surface);padding:0 3px">Fanout Exchange → SSE Push</span></div>
+                        <div style="background:#0d1f12;border:1px solid #4caf50;border-radius:6px;padding:5px 10px;color:#4caf50;font-weight:700;font-size:0.68rem;white-space:nowrap">🟢 order-service</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 기술 스택 -->
             <div class="doc-section">
                 <div class="doc-h2">기술 스택</div>
-                <div class="stack-grid">
-                    <div class="stack-badge"><div class="dot" style="background:#c8410a"></div>Java 17</div>
-                    <div class="stack-badge"><div class="dot" style="background:#6db33f"></div>Spring Boot 3.3</div>
-                    <div class="stack-badge"><div class="dot" style="background:#e8a020"></div>JPA + QueryDSL</div>
-                    <div class="stack-badge"><div class="dot" style="background:#dc382d"></div>Redis 7.2</div>
-                    <div class="stack-badge"><div class="dot" style="background:#ff6600"></div>RabbitMQ 3.13</div>
-                    <div class="stack-badge"><div class="dot" style="background:#1a5fa8"></div>SSE</div>
-                    <div class="stack-badge"><div class="dot" style="background:#0064ff"></div>Toss Payments</div>
-                    <div class="stack-badge"><div class="dot" style="background:#232f3e"></div>AWS EC2</div>
-                    <div class="stack-badge"><div class="dot" style="background:#0db7ed"></div>Docker Compose</div>
-                </div>
+                <table class="schema-table">
+                    <thead><tr><th>구분</th><th>기술</th></tr></thead>
+                    <tbody>
+                    <tr><td>Backend</td><td>Java 17 · Spring Boot 3.3 · JPA + QueryDSL</td></tr>
+                    <tr><td>동시성</td><td>Redis 7.2 DECR 원자적 재고관리</td></tr>
+                    <tr><td>비동기</td><td>RabbitMQ 3.13 (Direct + Fanout Exchange)</td></tr>
+                    <tr><td>실시간</td><td>SSE (Server-Sent Events) + 30초 Heartbeat</td></tr>
+                    <tr><td>결제</td><td>Toss Payments v2</td></tr>
+                    <tr><td>인프라</td><td>AWS ECS Fargate + EC2 + Docker Compose</td></tr>
+                    <tr><td>IaC</td><td>CloudFormation 4개 스택</td></tr>
+                    <tr><td>CI/CD</td><td>GitHub Actions → ECR → ECS 롤링 배포</td></tr>
+                    </tbody>
+                </table>
             </div>
+
+            <!-- 주요 설계 포인트 -->
             <div class="doc-section">
-                <div class="doc-h2">주문 플로우</div>
-                <div class="flow-steps">
-                    <div class="flow-step"><div class="flow-step-num">1</div><div class="flow-step-body"><div class="flow-step-title">QR 접속 → 익명 세션 발급</div><div class="flow-step-desc">Redis에 UUID 세션 저장. 장바구니에 첫 상품을 담는 순간 SSE 연결 시작.</div></div></div>
-                    <div class="flow-step"><div class="flow-step-num">2</div><div class="flow-step-body"><div class="flow-step-title">메뉴 조회</div><div class="flow-step-desc">Server A가 Redis에서 재고 직접 조회 (Read-Only). 재고 0이면 품절 표시.</div></div></div>
-                    <div class="flow-step"><div class="flow-step-num">3</div><div class="flow-step-body"><div class="flow-step-title">주문 요청 → 재고 확인</div><div class="flow-step-desc">재고 없으면 주문 실패 alert 반환.</div></div></div>
-                    <div class="flow-step"><div class="flow-step-num">4</div><div class="flow-step-body"><div class="flow-step-title">결제창 → Toss PG</div><div class="flow-step-desc">내부 PK 대신 orderNo(UUID)를 PG사에 제출. 카드 일반결제 기준.</div></div></div>
-                    <div class="flow-step"><div class="flow-step-num">5</div><div class="flow-step-body"><div class="flow-step-title">결제 성공 → Redis 최종 재고 확인 → PG 최종 승인</div><div class="flow-step-desc">TX 전문 저장 후 Server B에 RabbitMQ로 제조 지시.</div></div></div>
-                    <div class="flow-step"><div class="flow-step-num">6</div><div class="flow-step-body"><div class="flow-step-title">Server B 제조 (7초 자동 완성)</div><div class="flow-step-desc">조리 완료 시 SSE로 고객에게 Push. 관리자 화면에 주문번호 표기.</div></div></div>
-                    <div class="flow-step"><div class="flow-step-num">7</div><div class="flow-step-body"><div class="flow-step-title">전달 완료 → 세션 종료</div><div class="flow-step-desc">관리자가 전달완료 버튼 클릭 → 10초 후 고객 세션 만료 · 화면 초기화.</div></div></div>
+                <div class="doc-h2">주요 설계 포인트</div>
+                <div style="display:flex;flex-direction:column;gap:8px;font-size:0.78rem">
+                    <div style="background:var(--surface2);border-left:3px solid #4caf50;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.7">
+                        <span style="font-weight:700;color:#4caf50">익명 세션</span> &nbsp;회원 서비스 없음. <code style="font-family:'Space Mono',monospace;font-size:0.68rem;background:var(--surface);padding:1px 5px;border-radius:3px">GET /api/session/init</code>으로 UUID 발급 → sessionStorage 보관 → Redis TTL 10분 + Heartbeat 갱신
+                    </div>
+                    <div style="background:var(--surface2);border-left:3px solid #dc382d;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.7">
+                        <span style="font-weight:700;color:#dc382d">재고 이중화</span> &nbsp;Redis가 source of truth (DECR 원자 연산). 결제 성공 후 MQ 수신 시 MySQL 동기화
+                    </div>
+                    <div style="background:var(--surface2);border-left:3px solid #ff6600;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.7">
+                        <span style="font-weight:700;color:#ff6600">관리자 수평확장</span> &nbsp;<code style="font-family:'Space Mono',monospace;font-size:0.68rem;background:var(--surface);padding:1px 5px;border-radius:3px">admin.notify.exchange</code> Fanout → ECS Task별 exclusive queue. Task가 늘어도 모든 admin 화면에 동시 브로드캐스트
+                    </div>
+                    <div style="background:var(--surface2);border-left:3px solid #4a9eff;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.7">
+                        <span style="font-weight:700;color:#4a9eff">환불</span> &nbsp;Toss 취소 API (부분/전액). 투입 재고는 폐기 처리 (롤백 없음)
+                    </div>
                 </div>
             </div>
         </div>
@@ -1003,10 +1184,9 @@
                 <table class="schema-table">
                     <thead><tr><th>테이블</th><th>주요 컬럼</th><th>비고</th></tr></thead>
                     <tbody>
-                    <tr><td class="mono">orders</td><td>id · customer_id · total_price · paid_price · status</td><td>status: ACCEPTED/PAID/PARTIAL_REFUND/FULL_REFUND</td></tr>
-                    <tr><td class="mono">order_items</td><td>order_id · product_id · product_name · unit_price · quantity · status</td><td>가격·상품명 스냅샷 보존</td></tr>
-                    <tr><td class="mono">payments</td><td>id · <span class="pk">order_no(UUID)</span> · order_id · total_price · paid_price · payment_type · status</td><td>order_no → PG사 식별자. 내부 PK 외부 비노출</td></tr>
-                    <tr><td class="mono">payment_details</td><td>payment_id · tx_code · amount</td><td>환불은 음수(-) 금액으로 기록</td></tr>
+                    <tr><td class="mono">orders</td><td>id · customer_id · status · total_price · created_at · updated_at</td><td>status: PENDING / PAID / CANCELLED</td></tr>
+                    <tr><td class="mono">order_items</td><td>order_id · product_id · quantity · unit_price</td><td>가격 스냅샷 보존. 서비스 간 FK 없음</td></tr>
+                    <tr><td class="mono">payments</td><td>id · <span class="pk">order_id(UNIQUE)</span> · status · payment_method · paid_at</td><td>status: READY / COMPLETED / FAILED</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1015,11 +1195,12 @@
                 <table class="schema-table">
                     <thead><tr><th>테이블</th><th>주요 컬럼</th><th>비고</th></tr></thead>
                     <tbody>
-                    <tr><td class="mono">products</td><td>id · name · price · stock_quantity · is_displayed</td><td>재고·상품 통합. is_displayed로 품절 전시 제어</td></tr>
-                    <tr><td class="mono">manufactures</td><td>id · order_id · status</td><td>ACCEPTED→COMPLETED→DELIVERED / DISCARDED</td></tr>
+                    <tr><td class="mono">products</td><td>id · name · price · created_at</td><td>상품 마스터. 재고는 stock 테이블 분리</td></tr>
+                    <tr><td class="mono">stock</td><td>id · <span class="pk">product_id(UNIQUE)</span> · quantity · updated_at</td><td>Redis source of truth → MQ 수신 시 MySQL 동기화</td></tr>
+                    <tr><td class="mono">shipments</td><td>id · order_id · status · shipped_at · created_at</td><td>status: PREPARING / SHIPPED / DELIVERED</td></tr>
                     </tbody>
                 </table>
-                <div class="doc-desc" style="margin-top:12px">모든 테이블: <span class="mono">is_deleted · created_at · updated_at</span> 포함 (Soft Delete). 서비스 간 FK 제약 없음 — 타입 일치만 보장.</div>
+                <div class="doc-desc" style="margin-top:12px">서비스 간 FK 제약 없음 — 타입 일치만 보장. 재고의 source of truth는 Redis(DECR 원자 연산), MySQL은 결제 완료 후 동기화.</div>
             </div>
         </div>
 
@@ -1027,20 +1208,116 @@
         <div class="doc-page" id="doc-deploy">
             <div class="doc-section">
                 <div class="doc-h2">AWS 인프라 구성</div>
-                <div class="doc-desc">CloudFormation 4개 스택으로 인프라를 레이어별로 분리 관리. 앱 서버(ECS Fargate)와 인프라 서버(EC2)를 분리해 관심사를 명확히 구분.</div>
-                <div class="arch-diagram">
-                    <span class="hl">인터넷</span>
-                    └── <span class="hl2">ALB (Application Load Balancer)</span>  <span class="dim">← 80포트, 경로 기반 라우팅</span>
-                    ├── <span class="hl2">ECS Fargate — order-service      :8080</span>  <span class="dim">← 주문·결제</span>
-                    └── <span class="hl2">ECS Fargate — inventory-service  :8081</span>  <span class="dim">← 재고·제조</span>
+                <div class="doc-desc">CloudFormation 4개 스택으로 인프라를 레이어별로 분리 관리. ECS Fargate(앱)와 EC2(인프라)를 분리하고, VPC Subnet을 Public/Private으로 구분해 보안 경계를 명확히 구분.</div>
 
-                    <span class="hl">EC2 t3.micro</span>  <span class="dim">(인프라 전용 — docker-compose)</span>
-                    ├── <span class="hl">order-db      MySQL :3316</span>
-                    ├── <span class="hl">inventory-db  MySQL :3317</span>
-                    ├── <span class="hl3">Redis              :6379</span>   <span class="dim">← 재고 캐시 · 세션 UUID</span>
-                    └── <span class="hl3">RabbitMQ           :5672</span>   <span class="dim">← 서비스간 메시지 브로커</span>
+                <div style="font-size:0.7rem;margin-top:10px;display:flex;align-items:flex-start;gap:0">
+
+                    <!-- 왼쪽: 인터넷 + 화살표 -->
+                    <div style="display:flex;align-items:center;gap:0;padding-top:52px;flex-shrink:0">
+                        <div style="background:#1a1a2e;border:1px solid #4a9eff;border-radius:6px;padding:6px 10px;color:#4a9eff;font-weight:700;white-space:nowrap">🌐 인터넷</div>
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                            <div style="width:18px;height:1px;background:var(--muted)"></div>
+                        </div>
+                        <div style="color:var(--muted);font-size:0.8rem;line-height:1">→</div>
+                        <div style="width:8px;height:1px;background:var(--muted)"></div>
+                    </div>
+
+                    <!-- VPC 전체 박스 -->
+                    <div style="flex:1;border:1.5px solid #4a9eff;border-radius:10px;padding:10px;background:#080c14">
+                        <div style="color:#4a9eff;font-weight:700;font-size:0.6rem;text-align:right;margin-bottom:6px">VPC &nbsp;<code style="font-family:'Space Mono',monospace;background:#0a0f1a;padding:1px 4px;border-radius:2px;font-weight:400">10.0.0.0/16</code></div>
+
+                        <!-- Public Subnet -->
+                        <div style="border:1.5px dashed #ff9900;border-radius:8px;padding:10px;background:#0f0c00;margin-bottom:6px">
+                            <div style="color:#ff9900;font-weight:700;font-size:0.6rem;margin-bottom:8px">🔓 Public Subnet</div>
+
+                            <!-- ALB + EC2 나란히 -->
+                            <div style="display:flex;gap:10px;align-items:stretch">
+
+                                <!-- ALB -->
+                                <div style="flex:1;background:#2a1a08;border:1.5px solid #ff9900;border-radius:7px;padding:9px 10px;text-align:center">
+                                    <div style="color:#ff9900;font-weight:700">⚖️ ALB</div>
+                                    <div style="color:var(--muted);font-size:0.6rem;margin-top:3px">경로 기반 라우팅<br>:80</div>
+                                </div>
+
+                                <!-- EC2 -->
+                                <div style="flex:2;background:#1a1208;border:1.5px solid #e6a020;border-radius:7px;padding:9px 10px">
+                                    <div style="color:#e6a020;font-weight:700;margin-bottom:5px">🖥 EC2 t3.micro</div>
+                                    <div style="font-size:0.6rem;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap">
+                                        <span style="color:#e57373">🗄 MySQL A :3316</span>
+                                        <span style="color:#e57373">🗄 MySQL B :3317</span>
+                                        <span style="color:#dc382d">⚡ Redis :6379</span>
+                                        <span style="color:#ff6600">🐇 RabbitMQ :5672</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 화살표 아래 (ALB 1개 + EC2 2개) -->
+                            <div style="display:flex;margin-top:4px">
+                                <!-- ALB 아래 화살표 - flex:1 영역 중앙 -->
+                                <div style="flex:1;display:flex;justify-content:center">
+                                    <div style="display:flex;flex-direction:column;align-items:center">
+                                        <div style="width:1px;height:14px;background:var(--muted)"></div>
+                                        <div style="color:var(--muted);font-size:0.7rem">↓</div>
+                                    </div>
+                                </div>
+                                <!-- EC2 아래 화살표 2개 - flex:2 영역을 3등분해서 왼쪽 1/3, 오른쪽 2/3 중앙 -->
+                                <div style="flex:2;display:flex">
+                                    <div style="flex:1;display:flex;justify-content:center">
+                                        <div style="display:flex;flex-direction:column;align-items:center">
+                                            <div style="width:1px;height:14px;background:var(--muted)"></div>
+                                            <div style="color:var(--muted);font-size:0.7rem">↓</div>
+                                        </div>
+                                    </div>
+                                    <div style="flex:1;display:flex;justify-content:center">
+                                        <div style="display:flex;flex-direction:column;align-items:center">
+                                            <div style="width:1px;height:14px;background:var(--muted)"></div>
+                                            <div style="color:var(--muted);font-size:0.7rem">↓</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Private Subnet -->
+                        <div style="border:1.5px dashed #4caf50;border-radius:8px;padding:10px;background:#050f08">
+                            <div style="color:#4caf50;font-weight:700;font-size:0.6rem;margin-bottom:8px">🔒 Private Subnet — 인터넷 직접 접근 불가</div>
+                            <div style="display:flex;align-items:center;gap:6px">
+
+                                <!-- order-service -->
+                                <div style="flex:1;background:#0d1f12;border:1.5px solid #4caf50;border-radius:7px;padding:9px 10px;text-align:center">
+                                    <div style="color:#4caf50;font-weight:700">🟢 order-service</div>
+                                    <div style="color:var(--muted);font-size:0.6rem;margin-top:3px">ECS Fargate · :8080</div>
+                                </div>
+
+                                <!-- Cloud Map -->
+                                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">
+                                    <div style="font-size:0.6rem;color:#4a9eff">RestClient</div>
+                                    <div style="color:#4a9eff;font-size:0.75rem">⇄</div>
+                                    <div style="background:#0a0f1a;border:1px solid #4a9eff;border-radius:5px;padding:3px 7px;text-align:center">
+                                        <div style="color:#4a9eff;font-weight:700;font-size:0.62rem">🔍 Cloud Map</div>
+                                        <div style="color:var(--muted);font-size:0.55rem">inventory-service<br>.foodtruck.local</div>
+                                    </div>
+                                </div>
+
+                                <!-- inventory-service -->
+                                <div style="flex:1;background:#1a0d1f;border:1.5px solid #ab47bc;border-radius:7px;padding:9px 10px;text-align:center">
+                                    <div style="color:#ab47bc;font-weight:700">🟣 inventory-service</div>
+                                    <div style="color:var(--muted);font-size:0.6rem;margin-top:3px">ECS Fargate · :8081</div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- 보안그룹 한 줄 -->
+                        <div style="margin-top:8px;font-size:0.6rem;color:var(--muted);line-height:1.8">
+                            <span style="color:#4a9eff">sg-alb</span> → :80 from 0.0.0.0/0 &nbsp;·&nbsp;
+                            <span style="color:#4caf50">sg-ecs</span> → 8080/8081 from sg-alb · 8081 self &nbsp;·&nbsp;
+                            <span style="color:#ff9900">sg-infra</span> → 3306/6379/5672 from sg-ecs
+                        </div>
+                    </div>
                 </div>
             </div>
+
             <div class="doc-section">
                 <div class="doc-h2">CloudFormation 스택 구성</div>
                 <table class="schema-table">
@@ -1252,55 +1529,83 @@
             </div>
         </div>
 
-        <!-- 2-4. 진행현황 -->
-        <div class="doc-page" id="doc-progress">
+        <!-- 2-5. 트러블슈팅 -->
+        <div class="doc-page" id="doc-trouble">
             <div class="doc-section">
-                <div class="doc-h2">개발 진행 현황</div>
-                <div class="progress-section">
-                    <div class="progress-item">
-                        <div class="progress-label"><span>✅ 프로젝트 구조 설계</span><span>완료</span></div>
-                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+                <div class="doc-h2">트러블슈팅 기록</div>
+                <div class="doc-desc">개발 · 배포 과정에서 마주친 문제와 해결 과정을 기록합니다.</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+
+                    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                        <div style="background:var(--surface2);padding:9px 14px;font-size:0.72rem;font-weight:700;color:var(--text);display:flex;gap:10px;align-items:center">
+                            <span style="color:var(--red)">✗</span> SSE 재연결 시 신규 emitter가 즉시 cleanup 됨
+                        </div>
+                        <div style="padding:10px 14px;font-size:0.75rem;line-height:1.8">
+                            <span style="color:var(--accent2);font-weight:700">원인</span>&nbsp; <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">old.complete()</code> 비동기 콜백이 새 emitter를 map에서 제거<br>
+                            <span style="color:var(--green);font-weight:700">해결</span>&nbsp; <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">complete()</code> 제거 + 콜백 등록 시 동일성(key) 체크 추가
+                        </div>
                     </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>✅ Docker Compose 인프라</span><span>완료</span></div>
-                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+
+                    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                        <div style="background:var(--surface2);padding:9px 14px;font-size:0.72rem;font-weight:700;color:var(--text);display:flex;gap:10px;align-items:center">
+                            <span style="color:var(--red)">✗</span> 실시간 재고 갱신 안 됨
+                        </div>
+                        <div style="padding:10px 14px;font-size:0.75rem;line-height:1.8">
+                            <span style="color:var(--accent2);font-weight:700">원인</span>&nbsp; <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">AdminNotifyConsumer</code> payload를 <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">Map&lt;String,String&gt;</code>으로 캐스팅<br>
+                            <span style="color:var(--green);font-weight:700">해결</span>&nbsp; <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">Map&lt;String,Object&gt;</code>로 변경
+                        </div>
                     </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>✅ DB 스키마 · JPA Entity</span><span>완료</span></div>
-                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+
+                    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                        <div style="background:var(--surface2);padding:9px 14px;font-size:0.72rem;font-weight:700;color:var(--text);display:flex;gap:10px;align-items:center">
+                            <span style="color:var(--red)">✗</span> 만료된 uuid SSE 재연결 차단
+                        </div>
+                        <div style="padding:10px 14px;font-size:0.75rem;line-height:1.8">
+                            <span style="color:var(--accent2);font-weight:700">원인</span>&nbsp; <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">exists()</code> false → 연결 거부<br>
+                            <span style="color:var(--green);font-weight:700">해결</span>&nbsp; 만료 uuid 재등록 후 허용 (Heartbeat로 TTL 지속 갱신)
+                        </div>
                     </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>✅ 고객 주문 화면 (MVC)</span><span>완료</span></div>
-                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+
+                    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                        <div style="background:var(--surface2);padding:9px 14px;font-size:0.72rem;font-weight:700;color:var(--text);display:flex;gap:10px;align-items:center">
+                            <span style="color:var(--red)">✗</span> ECS → EC2 DB 연결 실패
+                        </div>
+                        <div style="padding:10px 14px;font-size:0.75rem;line-height:1.8">
+                            <span style="color:var(--accent2);font-weight:700">원인</span>&nbsp; application-prod.yml에 퍼블릭 IP 하드코딩<br>
+                            <span style="color:var(--green);font-weight:700">해결</span>&nbsp; CloudFormation Export 값(프라이빗 IP)을 CI/CD에서 동적으로 주입
+                        </div>
                     </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>✅ 관리자 콘솔 화면 (MVC)</span><span>완료</span></div>
-                        <div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+
+                    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                        <div style="background:var(--surface2);padding:9px 14px;font-size:0.72rem;font-weight:700;color:var(--text);display:flex;gap:10px;align-items:center">
+                            <span style="color:var(--red)">✗</span> MySQL 한글 데이터 깨짐 (latin1)
+                        </div>
+                        <div style="padding:10px 14px;font-size:0.75rem;line-height:1.8">
+                            <span style="color:var(--accent2);font-weight:700">원인</span>&nbsp; Docker MySQL 컨테이너 기본 charset이 latin1<br>
+                            <span style="color:var(--green);font-weight:700">해결</span>&nbsp; <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">my.cnf</code> 볼륨 마운트로 utf8mb4 강제 적용 + 컨테이너 재생성
+                        </div>
                     </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>🔲 Repository / Service 레이어</span><span>예정</span></div>
-                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
+
+                    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                        <div style="background:var(--surface2);padding:9px 14px;font-size:0.72rem;font-weight:700;color:var(--text);display:flex;gap:10px;align-items:center">
+                            <span style="color:var(--red)">✗</span> admin SSE 연결 요청 자체가 안 보내짐
+                        </div>
+                        <div style="padding:10px 14px;font-size:0.75rem;line-height:1.8">
+                            <span style="color:var(--accent2);font-weight:700">원인</span>&nbsp; <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">crypto.randomUUID()</code>는 HTTPS/localhost에서만 동작 — ALB HTTP 환경에서 에러<br>
+                            <span style="color:var(--green);font-weight:700">해결</span>&nbsp; HTTP 환경 폴백 UUID 생성 로직 추가
+                        </div>
                     </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>🔲 Toss PG 연동</span><span>예정</span></div>
-                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
+
+                    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                        <div style="background:var(--surface2);padding:9px 14px;font-size:0.72rem;font-weight:700;color:var(--text);display:flex;gap:10px;align-items:center">
+                            <span style="color:var(--red)">✗</span> 로컬 H2 JPA 초기화 순서 오류
+                        </div>
+                        <div style="padding:10px 14px;font-size:0.75rem;line-height:1.8">
+                            <span style="color:var(--accent2);font-weight:700">원인</span>&nbsp; <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">defer-datasource-initialization: true</code> 누락으로 schema.sql이 JPA보다 먼저 실행됨<br>
+                            <span style="color:var(--green);font-weight:700">해결</span>&nbsp; <code style="font-family:'Space Mono',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:0.68rem">application-local.yml</code>에 해당 설정 추가
+                        </div>
                     </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>🔲 Redis 재고 동기화</span><span>예정</span></div>
-                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
-                    </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>🔲 RabbitMQ 메시지 연동</span><span>예정</span></div>
-                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
-                    </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>🔲 SSE 실시간 알림</span><span>예정</span></div>
-                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
-                    </div>
-                    <div class="progress-item">
-                        <div class="progress-label"><span>🔲 AWS 배포 · CloudFormation</span><span>예정</span></div>
-                        <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
-                    </div>
+
                 </div>
             </div>
         </div>
@@ -1316,20 +1621,28 @@
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById('page-' + name).classList.add('active');
       el.classList.add('active');
-      document.getElementById('page-title').textContent = name === 'order' ? '주문관리' : '구조 해설';
+      document.getElementById('page-title').textContent = name === 'order' ? '주문관리' : '개발 일지';
 
-      const sub1 = document.getElementById('docs-sub-1');
-      const sub2 = document.getElementById('docs-sub-2');
-      sub1.style.display = name === 'docs' ? 'block' : 'none';
-      sub2.style.display = name === 'docs' ? 'block' : 'none';
+      const subnav = document.getElementById('docs-subnav');
+      subnav.style.display = name === 'docs' ? 'block' : 'none';
+
+      if (name === 'docs') {
+        // 기본: ① 테스트 시나리오 활성화
+        document.querySelectorAll('.doc-page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-sub').forEach(s => s.classList.remove('active'));
+        document.getElementById('doc-scenario').classList.add('active');
+        document.getElementById('sub-scenario').classList.add('active');
+        document.getElementById('page-title').textContent = '① 테스트 시나리오';
+      }
     }
 
     // ── 구조해설 탭 ──────────────────────────────
     function switchDoc(name, el) {
       document.querySelectorAll('.doc-page').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.docs-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-sub').forEach(t => t.classList.remove('active'));
       document.getElementById('doc-' + name).classList.add('active');
-      el.classList.add('active');
+      document.getElementById('sub-' + name).classList.add('active');
+      document.getElementById('page-title').textContent = el.textContent.trim();
     }
 
     // ── 세션 선택 ──────────────────────────────
@@ -1690,11 +2003,10 @@
       // 탭 단위 식별자
       let adminKey = sessionStorage.getItem('admin_key');
       if (!adminKey) {
-        adminKey = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            const r = Math.random() * 16 | 0;
-            const v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
+        adminKey = crypto.randomUUID
+          ? crypto.randomUUID()
+          : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+              (c ^ (Math.random() * 16 >> c / 4)).toString(16));
         sessionStorage.setItem('admin_key', adminKey);
       }
 
