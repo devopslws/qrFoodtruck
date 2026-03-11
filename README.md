@@ -8,184 +8,415 @@
 | **URL:** http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/orderView | **URL:** http://foodtruck-alb-2021833890.ap-northeast-2.elb.amazonaws.com/admin |
 ---
 
-## 📌 프로젝트 개요
-기능 
-팝업스토어 혹은 야시장의 푸드트럭에서의 사용을 가정한 주문 시스템입니다.
-환경 특성상 고객은 모두 비회원&익명이며, QR스캔을 통해 주문이 가능합니다(QR전단지로 홍보 및 주문가능)
+## 📋 목차
 
-판매자는 별도 관리 화면에서 주문 접수 및 조리 상태를 칸반 방식으로 관리합니다.
-
-목적
-1. 커머스 도메인 복습 + Java 복습
-2. monoRepo 구조 실습: 회색 지대인 공통영역(IaC환경 담당, messageBuilder)을 표현하기 좋은 구조
-3. container + Redis + Message: MSA구조에서 자주 채택되는 서버구조 및 배포환경 실습
-4. 복수 언어 환경의 고려: monoRepo 구조이므로 서로 다른 언어 기반의 서버가 경계 지점에서 IDL을 두고
-   간접 소통을 통해 message를 타입 불일치 없이 주고받을 수 있을지 
-
-설명의 서순은.. readMe에서는 간략한 개요, 혹은 2분 내외로 파악 가능하게끔만 정리하고, 상세한 도해는 admin에 그리자
-1. 기능기획 및 기능flowMap, 고민했던 기능/비기능적 요소와 접근방법, 기술 스택
-2. 데이터 스키마(2? 1-2?)
-3. 배포환경 구성 및 CI/CD환경 구축
-3. 서버구조 
----
-
-## 🖥️ 화면 구성
-
-| 화면 | 대상 | 주요 기능 |
-|------|------|-----------|
-| 주문 화면 | 고객 (QR 접근) | 메뉴 조회 · 장바구니 · 결제 · 조리 상태 실시간 확인 |
-| 관리 화면 | 판매자 | 주문 목록 조회 · 칸반 조리 상태 관리 · 재고 입고 |
+-  [서비스 시나리오](#서비스-시나리오)
+- [기술 스택](#기술-스택)
+- [아키텍처](#아키텍처)
+- [화면 구성](#화면-구성)
+- [주요 설계 결정](#주요-설계-결정)
+- [프로젝트 구조](#프로젝트-구조)
+- [로컬 실행](#로컬-실행)
+- [AWS 배포](#aws-배포)
+- [API 목록](#api-목록)
 
 ---
 
-## 🏗️ 시스템 아키텍처
+## 서비스 시나리오
+
+고객 QR 스캔
+│
+▼
+메뉴 조회 (Redis 재고 실시간 반영)
+│
+▼
+장바구니 → Toss 결제
+│  결제 시도 시 Redis DECR 선차감
+│  결제 실패 시 releaseStock() 보상 트랜잭션
+▼
+결제 완료 → RabbitMQ 제조 지시 → inventory-service 조리 (7초 후 자동 완료)
+│
+├── 고객 화면(주문 고객만): SSE "조리중 → 조리완료" 실시간 수신
+└── 관리자 화면(모든admin창): SSE 세션 카드 추가 → 수령 버튼
+│
+▼
+관리자 수령 처리 → 고객 화면 종료 
+               (10초 후 모든 admin창+고객order창에서 완료 주문정보 삭제)
+
+
+**재고 부족 시**: Redis DECR 0 미만 → `releaseStock()` 보상 트랜잭션 → 실패 배너 + 재고 최신화
+
+**Orders 상태**: `PENDING → PAID → COOKING → READY → DELIVERED` / `CANCELLED`
+
+> 💡 **동시 주문 · 브로드캐스트 · 세션 생명주기 등 상세 검증 시나리오는 관리자 화면(`/admin`) 우하단 패널을 참고하세요.**
 
 ```
-[고객 브라우저]
-     │ QR 접속 / SSE 구독
-     ▼
-[Server A — 주문 · 결제]          [Server B — 재고 · 제조]
- - 주문 접수 및 결제 처리           - 상품 재고 관리
- - Toss PG 연동                    - 조리 상태 관리 (7초 자동 완성)
- - Redis 재고 Read-Only 조회        - Redis 재고 Write 주체
- - SSE 이벤트 Push                 - RabbitMQ 이벤트 발행
-     │                                      │
-     └──────────── RabbitMQ ────────────────┘
-                   (비동기 메시지)
-     │
-  [Redis] — 공유 캐시 (재고 실시간 관리)
-  [MySQL A] — 주문 · 결제 DB
-  [MySQL B] — 상품 · 제조 DB
-```
-
+---
 ---
 
-## 🔄 주문 플로우
-
-```
-1. 고객 QR 접속 → 익명 세션 UUID 발급 (Redis)
-2. 메뉴 조회 → Server A가 Redis에서 재고 직접 조회
-3. 주문 요청 → 재고 확인 후 주문 승인
-4. 결제창 이동 → orderNo(UUID) 생성 후 Toss PG에 제출
-5. 결제 완료 → Server A가 Redis 최종 재고 확인
-6. 재고 있음 → Toss 최종 승인 → TX 전문 저장
-7. RabbitMQ → Server B에 제조 지시
-8. Server B → 7초 후 조리 완료
-9. SSE → 고객에게 조리 완료 알림 Push
-10. 판매자가 전달 완료 버튼 클릭 → 10초 후 세션 종료
-```
-
----
-
-## ⚙️ 기술 스택
+## 기술 스택
 
 | 구분 | 기술 |
 |------|------|
 | Language | Java 17 |
 | Framework | Spring Boot 3.3 |
-| ORM | Spring Data JPA + QueryDSL |
+| ORM | Spring Data JPA |
 | Database | MySQL 8.0 (서비스별 독립 DB) |
-| Cache / 분산락 | Redis 7.2 |
+| Cache / 동시성 | Redis 7.2 (DECR 원자적 재고관리) |
 | Message Broker | RabbitMQ 3.13 |
-| 실시간 통신 | SSE (Server-Sent Events) |
-| 결제 | Toss Payments PG |
-| 인프라 | AWS EC2 + Docker Compose |
-| IaC | AWS CloudFormation (예정) |
+| 실시간 통신 | SSE (Server-Sent Events) + Heartbeat 30초 |
+| 결제 | Toss Payments v2 |
+| 인프라 | AWS ECS Fargate + EC2 + Docker Compose |
+| IaC | AWS CloudFormation (6개 스택) |
+| CI/CD | GitHub Actions → ECR → ECS 롤링 배포 |
 
 ---
 
-## 🗂️ 프로젝트 구조
+## 아키텍처
+
+
+                        ┌─────────────────────────────────┐
+                        │         AWS (ap-northeast-2)     │
+                        │                                  │
+  고객 / 관리자           │   ALB (foodtruck-alb)            │
+  브라우저   ─────────────┼──▶  :80/:443                     │
+                        │       │                          │
+                        │  ┌────▼────┐    ┌─────────────┐  │
+                        │  │ ECS     │    │ ECS Fargate │  │
+                        │  │ Fargate │    │ inventory-  │  │
+                        │  │ order-  │    │ service     │  │
+                        │  │ service │    │ :8081       │  │
+                        │  │ :8080   │    └──────┬──────┘  │
+                        │  └────┬────┘           │         │
+                        │       │                │         │
+                        │  ┌────▼────────────────▼──────┐  │
+                        │  │     EC2 t3.micro            │  │
+                        │  │  docker-compose             │  │
+                        │  │                             │  │
+                        │  │  MySQL A (orderdb :3316)    │  │
+                        │  │  MySQL B (inventorydb :3317)│  │
+                        │  │  Redis  (:6379)             │  │
+                        │  │  RabbitMQ (:5672 / :15672)  │  │
+                        │  └─────────────────────────────┘  │
+                        └─────────────────────────────────┘
+
+서비스 간 통신
+  order-service → inventory-service : RestClient (메뉴 조회 / 재고 선차감)
+  order-service → inventory-service : RabbitMQ manufacture.queue (제조 지시)
+  inventory-service → order-service : RabbitMQ cooking.done.queue (조리완료)
+  order-service → admin 브라우저    : RabbitMQ admin.notify.exchange Fanout → SSE
+```
+
+### 인프라 이원화 전략
+
+| 레이어 | 리소스 | 이유 |
+|--------|--------|------|
+| 앱 서버 | ECS Fargate | 수평확장, 무중단 롤링 배포 |
+| 인프라 | EC2 t3.micro + docker-compose | MySQL·Redis·RabbitMQ 비용 절감 (관리형 서비스 대비) |
+
+---
+
+## 화면 구성
+
+### 고객 주문 화면 (`/orderView`)
+- 메뉴 목록 + 재고 수량 표시
+- 장바구니 → Toss 결제
+- 결제 완료 후 주문 상태 실시간 표시 (조리중 → 조리완료 → 수령완료)
+- 재고 부족 실패 시: 상단 고정 배너 + 장바구니 초기화 + 메뉴 재고 최신화
+
+### 관리자 화면 (`/admin`)
+- **좌측**: 고객 세션 카드 (접속 고객별 주문 상태, 수령 버튼)
+- **중앙**:
+    - POS 현장 주문 (준비중)
+    - 환불 처리 (판매 LOG 클릭 → 주문번호 자동입력 → Toss 환불 API)
+    - 실시간 재고 조회 / 조정 (주문 접수 시 즉시 반영)
+- **우측**: 오늘 판매 LOG (DB 조회, 클릭 시 환불 입력란 연동)
+
+---
+
+## 주요 설계 결정
+
+### 익명 세션 관리
+- 회원 서비스 없음. `GET /api/session/init` 으로 서버가 uuid 발급
+- 클라이언트는 `sessionStorage`에 보관 (탭 단위 격리)
+- Redis에 TTL 10분으로 세션 유지, 30초 heartbeat로 갱신
+- 페이지 복귀 시 heartbeat로 Redis 유효성 확인 → 만료면 재발급
+
+### 재고 관리 (Redis + MySQL 이중화)
+```
+Redis  : source of truth (DECR 원자적 연산으로 동시 주문 처리)
+MySQL  : 영속 저장 (ManufactureConsumer에서 MQ 수신 후 차감 동기화)
+
+선차감 흐름:
+  결제 시도 → Redis DECR → 0 미만이면 재고 복구 + 결제 차단
+  결제 성공 → RabbitMQ 제조 지시
+  MQ 수신   → MySQL 재고 차감 동기화
+```
+
+### SSE 실시간 통신
+- 고객 SSE: 첫 상품 담기 시 연결, 수령 완료 후 종료
+- 관리자 SSE: Fanout Exchange → ECS Task별 exclusive queue → 수평확장 대응
+- Emitter 재연결 경쟁 조건 해결: `old.complete()` 제거 + 콜백 동일성 체크
+
+### RabbitMQ Exchange 구성
+| Exchange | 타입 | 용도 |
+|----------|------|------|
+| `foodtruck.exchange` | Direct | 제조 지시 / 조리완료 |
+| `admin.notify.exchange` | Fanout | 관리자 전체 브로드캐스트 |
+
+### 환불 정책
+- Toss Payments 취소 API 호출 (부분 / 전액)
+- 투입 재고는 폐기 처리 (재고 롤백 없음)
+- 서버 검증: 환불 금액 > 결제 금액이면 400 반환
+
+---
+
+## 프로젝트 구조
 
 ```
-qrFoodtruck/                     ← mono repo
-├── order-service/               ← Server A: 주문 · 결제
+qrFoodtruck/
+├── order-service/                   # 주문 · 결제 서버 (:8080)
 │   └── src/main/java/com/example/orderService/
-│       └── domain/
-│           ├── order/entity/    ← Orders, OrderItem
-│           └── payment/entity/  ← Payment, PaymentDetail
+│       ├── session/                 # uuid 발급 · heartbeat · Redis 세션 관리
+│       ├── order/                   # Orders · OrderItem 엔티티 / Repository
+│       ├── payment/                 # Toss 결제 · 환불
+│       ├── product/                 # 메뉴 조회 프록시 (→ inventory-service)
+│       ├── manufacture/             # RabbitMQ 제조 지시 발행 · 조리완료 수신
+│       ├── common/sse/              # SseEmitterManager (고객 실시간 통신)
+│       ├── admin/                   # 관리자 SSE · 스냅샷 · 환불 · 재고 · 판매로그
+│       └── config/                  # RabbitMQ · RestClient · Toss
 │
-├── inventory-service/           ← Server B: 재고 · 제조
+├── inventory-service/               # 재고 · 제조 서버 (:8081)
 │   └── src/main/java/com/example/inventoryService/
-│       └── domain/
-│           ├── product/entity/  ← Product (재고 통합)
-│           └── manufacture/entity/ ← Manufacture
+│       ├── stock/                   # Stock 엔티티 · Redis 초기화 · 재고 선차감
+│       ├── manufacture/             # 제조 지시 수신 · 비동기 조리 · 조리완료 발행
+│       ├── admin/                   # 관리자 재고 조회 / 조정 API
+│       └── config/                  # RabbitMQ
 │
 ├── init-sql/
-│   ├── order/                   ← order-service DB 초기화 SQL
-│   └── inventory/               ← inventory-service DB 초기화 SQL (시드 포함)
+│   ├── order/01_schema.sql          # orders · order_items · payments 테이블
+│   └── inventory/01_schema.sql      # products · stock · shipments + 샘플 데이터
 │
-├── docker-compose.yml
-└── build.gradle                 ← 루트 공통 설정
+├── cloudformation/
+│   ├── 01_vpc.yml                   # VPC · Subnet · IGW · Security Groups
+│   ├── 02_infra.yml                 # EC2 + docker-compose (MySQL·Redis·RabbitMQ)
+│   ├── 03_ecr.yml                   # ECR 레포지토리
+│   ├── 04_ecs.yml                   # ECS Cluster · ALB · Target Groups
+│   ├── 05_dns.yml                   # Route53 + ACM (도메인 연결 시 사용)
+│   ├── 06_budget.yml                # 예산 경보 · ECS 자동 중지
+│   └── deploy.sh                    # CloudFormation 순차 배포 스크립트
+│
+├── .github/workflows/deploy.yml     # GitHub Actions CI/CD
+├── docker-compose.yml               # 로컬 전체 스택 실행
+└── build.gradle                     # 멀티모듈 공통 의존성
 ```
 
 ---
 
-## 🗄️ 데이터 스키마 요약
+## 로컬 실행
 
-**Server A (orderdb)**
-
-| 테이블 | 설명 |
-|--------|------|
-| `orders` | 주문 헤더. 고객 세션 UUID · 총액 · 상태 |
-| `order_items` | 주문 상세. 상품명 · 가격 스냅샷 보존 |
-| `payments` | 결제. `order_no`(UUID)를 PG사 식별자로 사용 |
-| `payment_details` | 결제 이력. 환불은 음수 금액으로 기록 |
-
-**Server B (inventorydb)**
-
-| 테이블 | 설명 |
-|--------|------|
-| `products` | 상품 · 재고 통합 관리. `is_displayed`로 품절 전시 제어 |
-| `manufactures` | 제조 상태 관리. `ACCEPTED → COMPLETED → DELIVERED / DISCARDED` |
-
-> 모든 테이블은 `is_deleted` · `created_at` · `updated_at` 포함 (Soft Delete 적용)
-
----
-
-## 🔑 설계 포인트
-
-**익명 세션**  
-회원 서비스 없이 QR 접속 시 서버가 UUID를 발급, Redis에 저장. 상품 수령 완료 후 10초 뒤 자동 만료.
-
-**재고 관리 전략**  
-Redis를 재고의 1차 저장소로 사용, DB와 항상 동기화 유지. Server A는 Read-Only, Server B만 Write 권한 보유.
-
-**결제 보안**  
-내부 PK 대신 `order_no`(UUID)를 PG사에 노출해 내부 식별자를 외부로부터 보호.
-
-**서비스 간 통신**  
-동기 호출 없이 RabbitMQ 메시지로만 서비스 간 이벤트 전달. 재고 입고 시에도 RabbitMQ → SSE 경로로 접속 고객 화면 자동 갱신.
-
----
-
-## 🚀 로컬 실행
+### 1. 인프라 서버 기동 (Docker)
 
 ```bash
-git clone https://github.com/devopslws/qrFoodtruck.git
-cd qrFoodtruck
-
-docker compose up --build
+docker-compose up -d order-db inventory-db redis rabbitmq
 ```
 
-| 서비스 | 주소 |
-|--------|------|
-| order-service | http://localhost:8080 |
-| inventory-service | http://localhost:8081 |
-| RabbitMQ Management | http://localhost:15672 (admin / admin123) |
-| MySQL order-db | localhost:3316 |
-| MySQL inventory-db | localhost:3317 |
+또는 개별 실행:
+
+```bash
+# Redis
+docker run -d -p 6379:6379 redis:7.2-alpine redis-server --requirepass redis123
+
+# RabbitMQ
+docker run -d -p 5672:5672 -p 15672:15672 \
+  -e RABBITMQ_DEFAULT_USER=admin \
+  -e RABBITMQ_DEFAULT_PASS=admin123 \
+  rabbitmq:3.13-management-alpine
+```
+
+### 2. 앱 서버 실행
+
+IntelliJ에서 각 서비스 실행 시 환경변수:
+
+```
+SPRING_PROFILES_ACTIVE=local
+```
+
+`application-local.yml` 필수 설정:
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb   # 로컬은 H2 인메모리
+  web:
+    resources:
+      cache:
+        period: 0             # 정적 리소스 캐시 비활성
+  data:
+    redis:
+      host: localhost
+      password: redis123
+  rabbitmq:
+    host: localhost
+    username: admin
+    password: admin123
+```
+
+### 3. 접속
+
+| 서비스 | URL |
+|--------|-----|
+| 고객 주문 화면 | http://localhost:8080/orderView |
+| 관리자 화면 | http://localhost:8080/admin |
+| RabbitMQ 관리 UI | http://localhost:15672 (admin / admin123) |
+| H2 Console | http://localhost:8080/h2-console |
 
 ---
 
-## 📋 현재 진행 상태
+## AWS 배포
 
-- [x] 프로젝트 구조 설계 (mono repo MSA)
-- [x] docker-compose 인프라 구성
-- [x] DB 스키마 설계 및 JPA Entity 작성
-- [ ] Repository / Service 레이어 구현
-- [ ] Toss PG 연동
-- [ ] Redis 재고 동기화 전략 구현
-- [ ] RabbitMQ 메시지 발행 / 소비 구현
-- [ ] SSE 실시간 알림 구현
-- [ ] 주문 · 관리 화면 구현
-- [ ] AWS 배포 및 CloudFormation IaC
+### 사전 준비
+
+```bash
+# AWS CLI 설치 및 인증 설정
+aws configure
+
+# GitHub Secrets 등록 필요
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+AWS_REGION              # ap-northeast-2
+AWS_ACCOUNT_ID
+TOSS_CLIENT_KEY
+TOSS_SECRET_KEY
+NOTIFICATION_EMAIL
+NOTIFICATION_PHONE
+```
+
+### CloudFormation 스택 배포
+
+```bash
+cd cloudformation
+chmod +x deploy.sh
+./deploy.sh
+```
+
+배포 순서 및 각 스택 역할:
+
+| 순서 | 스택 | 내용 |
+|------|------|------|
+| 1 | `foodtruck-vpc` | VPC · 퍼블릭 서브넷 2개 · IGW · 보안그룹 |
+| 2 | `foodtruck-infra` | EC2 t3.micro + docker-compose 자동 설치 |
+| 3 | `foodtruck-ecr` | order-service · inventory-service ECR 레포 |
+| 4 | `foodtruck-ecs` | ECS Cluster · ALB · Target Group |
+| 5 | `foodtruck-budget` | 월 $10 예산 경보 + ECS 자동 중지 |
+
+### CI/CD (GitHub Actions)
+
+`main` 브랜치 push 시 자동 실행:
+
+```
+1. Gradle 빌드 (order-service, inventory-service)
+2. Docker 이미지 빌드
+3. ECR push
+4. ECS 롤링 배포 (무중단)
+```
+
+### 도메인 연결 (선택)
+
+도메인 구매 후 `05_dns.yml` 실행:
+
+```bash
+aws cloudformation deploy \
+  --template-file cloudformation/05_dns.yml \
+  --stack-name foodtruck-dns \
+  --parameter-overrides \
+      DomainName=yourdomain.com \
+      HostedZoneId=XXXXXXXXXXXXX
+```
+
+---
+
+## API 목록
+
+### order-service (:8080)
+
+#### 세션
+| Method | Path | 설명 |
+|--------|------|------|
+| GET | `/api/session/init` | uuid 발급 |
+| POST | `/api/session/heartbeat?uuid=` | 세션 갱신 |
+
+#### 메뉴 / 주문
+| Method | Path | 설명 |
+|--------|------|------|
+| GET | `/api/products` | 메뉴 + 재고 조회 |
+| POST | `/api/payment/prepare` | 주문 준비 (Toss 위젯 초기화) |
+| GET | `/api/payment/success` | Toss 결제 성공 콜백 |
+| GET | `/api/payment/fail` | Toss 결제 실패 콜백 |
+| GET | `/api/order/active?uuid=` | 진행중 주문 조회 (복귀 시 SSE 재연결용) |
+
+#### SSE
+| Method | Path | 설명 |
+|--------|------|------|
+| GET | `/sse/connect?uuid=` | 고객 SSE 연결 |
+| POST | `/sse/close?uuid=` | 고객 SSE 종료 |
+| GET | `/admin/sse/connect?adminKey=` | 관리자 SSE 연결 |
+
+#### 관리자
+| Method | Path | 설명 |
+|--------|------|------|
+| GET | `/api/admin/sessions/snapshot` | 진행중 주문 스냅샷 |
+| POST | `/api/admin/order/receive` | 수령 처리 |
+| GET | `/api/admin/refund/lookup?orderNo=` | 결제 정보 조회 |
+| POST | `/api/admin/refund` | Toss 환불 실행 |
+| GET | `/api/admin/stock` | 재고 목록 조회 |
+| POST | `/api/admin/stock/{productId}` | 재고 조정 |
+| GET | `/api/admin/sales/log` | 오늘 판매 로그 |
+
+### inventory-service (:8081)
+
+| Method | Path | 설명 |
+|--------|------|------|
+| GET | `/api/products` | 메뉴 + 재고 조회 (Redis) |
+| POST | `/api/stock/reserve` | 재고 선차감 (Redis DECR) |
+| POST | `/api/stock/release` | 재고 복구 (결제 실패 시) |
+| GET | `/api/admin/stock` | 관리자 재고 목록 |
+| POST | `/api/admin/stock/{productId}` | 관리자 재고 조정 (Redis + DB 동기화) |
+
+---
+
+## SSE 이벤트 목록
+
+### 고객 수신 이벤트
+
+| 이벤트 | payload | 시점 |
+|--------|---------|------|
+| `COOKING_START` | `{orderNo, status}` | 결제 완료 직후 |
+| `COOKING_DONE` | `{orderNo, status: "READY"}` | 조리 완료 |
+| `ORDER_RECEIVED` | `{orderNo}` | 관리자 수령 처리 |
+
+### 관리자 수신 이벤트
+
+| 이벤트 | payload | 시점 |
+|--------|---------|------|
+| `ADMIN_CONNECTED` | - | SSE 연결 완료 |
+| `SESSION_OPENED` | `{uuid}` | 고객 SSE 연결 |
+| `SESSION_CLOSED` | `{uuid}` | 고객 SSE 종료 |
+| `ORDER_COOKING` | `{uuid, orderNo, desc, amount, stockUpdates}` | 결제 완료 |
+| `ORDER_READY` | `{uuid, orderNo}` | 조리 완료 |
+| `ORDER_DELIVERED` | `{uuid, orderNo}` | 수령 완료 |
+
+---
+
+## 트러블슈팅 기록
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| SSE 재연결 시 신규 emitter가 즉시 cleanup 됨 | `old.complete()` 비동기 콜백이 새 emitter를 제거 | `complete()` 제거 + 콜백에 동일성 체크 |
+| `ORDER_RECEIVED` 이벤트 파싱 오류 | raw String → `JSON.parse()` SyntaxError | `Map.of("orderNo", ...)` 객체로 직렬화 |
+| 새로고침 후 admin에서 조리중으로 표시 | `CookingDoneConsumer`에서 `order.cooking()` 오타 | `order.ready()`로 수정 |
+| 실시간 재고 갱신 안 됨 | `AdminNotifyConsumer` payload를 `Map<String,String>`으로 캐스팅 | `Map<String,Object>`로 변경 |
+| 재고 조정 후 화면 빈칸 | 성공/실패 구분 없이 항상 success Toast | 실패 항목 개별 오류 Toast + 성공 시 `loadStock()` 재조회 |
+| 만료 uuid SSE 재연결 차단 | `exists()` false → 연결 거부 | 만료 uuid 재등록 후 허용 (DEBUG 레그) |
+| ECS → EC2 DB 연결 실패 | 퍼블릭 IP 사용 | 프라이빗 IP(10.0.1.130)로 변경 |
+| 로컬 H2 JPA 초기화 순서 | `defer-datasource-initialization: true` 누락 | application-local.yml에 추가 | 배포 및 CloudFormation IaC
