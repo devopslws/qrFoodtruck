@@ -22,4 +22,5 @@ application-local.yml
 Thumbs.db
 EOF
 
+#claud작업 디렉터리
 .claude/
