@@ -21,3 +21,5 @@ application-local.yml
 .DS_Store
 Thumbs.db
 EOF
+
+.claude/
